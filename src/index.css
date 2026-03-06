@@ -123,11 +123,12 @@
   }
 
   .page-header {
-    @apply mb-6;
+    @apply mb-8;
   }
 
   .page-title {
-    @apply text-2xl font-semibold text-foreground;
+    @apply text-2xl font-bold text-foreground tracking-tight;
+    font-family: 'DM Sans', system-ui, sans-serif;
   }
 
   .page-subtitle {

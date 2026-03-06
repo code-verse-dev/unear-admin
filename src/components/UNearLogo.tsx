@@ -1,6 +1,6 @@
 const UNearLogo = ({ collapsed = false }: { collapsed?: boolean }) => {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       <div className="w-8 h-8 flex items-center justify-center">
         <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect width="32" height="32" rx="8" fill="hsl(var(--sidebar-primary))" />
@@ -9,7 +9,7 @@ const UNearLogo = ({ collapsed = false }: { collapsed?: boolean }) => {
         </svg>
       </div>
       {!collapsed && (
-        <span className="text-lg font-bold tracking-tight text-sidebar-accent-foreground">
+        <span className="text-lg font-extrabold tracking-tight font-display text-sidebar-accent-foreground">
           UNEAR
         </span>
       )}
