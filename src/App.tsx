@@ -3,8 +3,20 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
+import AdminLayout from "@/components/AdminLayout";
+import Dashboard from "@/pages/Dashboard";
+import UsersPage from "@/pages/UsersPage";
+import VehiclesPage from "@/pages/VehiclesPage";
+import ClaimsPage from "@/pages/ClaimsPage";
+import TransactionsPage from "@/pages/TransactionsPage";
+import DisputesPage from "@/pages/DisputesPage";
+import InspectionsPage from "@/pages/InspectionsPage";
+import FaqsPage from "@/pages/FaqsPage";
+import PagesPage from "@/pages/PagesPage";
+import PushNotificationsPage from "@/pages/PushNotificationsPage";
+import SettingsPage from "@/pages/SettingsPage";
+import Login from "@/pages/Login";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -15,8 +27,20 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="/login" element={<Login />} />
+          <Route element={<AdminLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/users" element={<UsersPage />} />
+            <Route path="/vehicles" element={<VehiclesPage />} />
+            <Route path="/claims" element={<ClaimsPage />} />
+            <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/disputes" element={<DisputesPage />} />
+            <Route path="/inspections" element={<InspectionsPage />} />
+            <Route path="/faqs" element={<FaqsPage />} />
+            <Route path="/pages" element={<PagesPage />} />
+            <Route path="/notifications" element={<PushNotificationsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
