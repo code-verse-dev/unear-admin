@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import unearLogo from "@/assets/unear-logo.png";
+
+const featureIcons = [
+  { icon: Users, label: "Users" },
+  { icon: Car, label: "Vehicles" },
+  { icon: MapPin, label: "Trips" },
+];
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -23,30 +29,51 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-background relative overflow-hidden">
-      {/* Left decorative panel - hidden on mobile */}
-      <div className="hidden lg:flex lg:w-[45%] bg-primary relative items-center justify-center p-12">
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage: `radial-gradient(circle at 30% 20%, hsl(var(--secondary)) 0%, transparent 50%),
-                           radial-gradient(circle at 70% 80%, hsl(var(--secondary)) 0%, transparent 40%)`,
+    <div className="min-h-screen flex" style={{ background: 'hsl(207 27% 11%)' }}>
+      {/* Left brand panel */}
+      <div className="hidden lg:flex lg:w-[46%] relative items-center justify-center p-12 overflow-hidden">
+        {/* Gradient orbs */}
+        <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.12) 0%, transparent 65%)' }} />
+        <div className="absolute bottom-[-5%] right-[-10%] w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.08) 0%, transparent 60%)' }} />
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: 'linear-gradient(hsla(0,0%,100%,0.1) 1px, transparent 1px), linear-gradient(90deg, hsla(0,0%,100%,0.1) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
         }} />
-        <div className="relative z-10 max-w-md text-center">
-          <div className="w-20 h-20 rounded-2xl overflow-hidden mx-auto mb-8 ring-4 ring-secondary/20 shadow-2xl">
+
+        <div className="relative z-10 max-w-sm text-center">
+          <div className="w-[88px] h-[88px] rounded-3xl overflow-hidden mx-auto mb-10 shadow-2xl" style={{ boxShadow: '0 0 0 4px hsla(41,100%,59%,0.15), 0 20px 60px -10px rgba(0,0,0,0.5)' }}>
             <img src={unearLogo} alt="UNear Logo" className="w-full h-full object-cover" />
           </div>
-          <h2 className="text-3xl font-extrabold text-primary-foreground font-display tracking-tight mb-3">
+          <h2 className="text-[28px] font-extrabold tracking-tight font-display mb-2" style={{ color: 'hsl(41 100% 59%)' }}>
             UNear Admin
           </h2>
-          <p className="text-sm text-primary-foreground/50 leading-relaxed max-w-xs mx-auto">
-            Manage your car-sharing platform with a powerful, intuitive admin dashboard.
+          <p className="text-[14px] leading-relaxed max-w-[280px] mx-auto" style={{ color: 'hsla(210,15%,75%,0.6)' }}>
+            Manage your car-sharing platform with a powerful, intuitive dashboard.
           </p>
-          <div className="mt-10 flex items-center justify-center gap-6">
-            {["Users", "Vehicles", "Trips"].map((item) => (
-              <div key={item} className="flex flex-col items-center gap-1.5">
-                <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
-                  <span className="text-secondary text-xs font-bold">{item[0]}</span>
+
+          {/* Feature pills */}
+          <div className="mt-12 flex items-center justify-center gap-4">
+            {featureIcons.map(({ icon: Icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-2">
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'hsla(41,100%,59%,0.1)' }}>
+                  <Icon className="w-[18px] h-[18px]" style={{ color: 'hsl(41 100% 59%)' }} />
                 </div>
-                <span className="text-[10px] text-primary-foreground/40 font-medium">{item}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'hsla(210,15%,75%,0.4)' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Stats row */}
+          <div className="mt-14 flex items-center justify-center gap-8">
+            {[
+              { value: "12K+", label: "Users" },
+              { value: "3.2K", label: "Vehicles" },
+              { value: "99.9%", label: "Uptime" },
+            ].map((stat) => (
+              <div key={stat.label} className="text-center">
+                <p className="text-lg font-bold" style={{ color: 'hsl(41 100% 59%)' }}>{stat.value}</p>
+                <p className="text-[10px] font-medium mt-0.5" style={{ color: 'hsla(210,15%,75%,0.35)' }}>{stat.label}</p>
               </div>
             ))}
           </div>
@@ -54,40 +81,41 @@ const Login = () => {
       </div>
 
       {/* Right login panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 bg-card rounded-l-[2rem] lg:rounded-l-[2.5rem] relative" style={{ boxShadow: '-10px 0 40px -10px rgba(0,0,0,0.1)' }}>
         <div className="w-full max-w-[380px]">
-          {/* Mobile logo - shown only on smaller screens */}
+          {/* Mobile logo */}
           <div className="flex justify-center mb-8 lg:hidden">
-            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md border border-border/50">
+            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border border-border/40">
               <img src={unearLogo} alt="UNear Logo" className="w-full h-full object-cover" />
             </div>
           </div>
 
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-2xl font-extrabold text-foreground tracking-tight font-display">
-              Welcome back
+            <p className="text-[13px] font-semibold text-secondary tracking-wide mb-1">ADMIN PANEL</p>
+            <h1 className="text-[26px] font-extrabold text-foreground tracking-tight font-display leading-tight">
+              Welcome back 👋
             </h1>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              Sign in to your admin account
+            <p className="text-[14px] text-muted-foreground mt-2">
+              Sign in to manage your platform
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 Email Address
               </Label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+              <div className="relative group">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-muted-foreground/35 group-focus-within:text-secondary transition-colors duration-200" />
                 <Input
                   type="email"
                   placeholder="admin@unear.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="h-12 pl-10 bg-muted/25 border-border/60 rounded-xl text-sm placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-secondary/30 focus-visible:border-secondary/60 transition-all duration-200"
+                  className="h-12 pl-11 bg-muted/20 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/35 focus-visible:ring-2 focus-visible:ring-secondary/25 focus-visible:border-secondary/50 focus-visible:bg-card transition-all duration-200"
                 />
               </div>
             </div>
@@ -96,20 +124,20 @@ const Login = () => {
               <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
                 Password
               </Label>
-              <div className="relative">
-                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+              <div className="relative group">
+                <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-[16px] h-[16px] text-muted-foreground/35 group-focus-within:text-secondary transition-colors duration-200" />
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12 pl-10 pr-11 bg-muted/25 border-border/60 rounded-xl text-sm placeholder:text-muted-foreground/40 focus-visible:ring-2 focus-visible:ring-secondary/30 focus-visible:border-secondary/60 transition-all duration-200"
+                  className="h-12 pl-11 pr-11 bg-muted/20 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/35 focus-visible:ring-2 focus-visible:ring-secondary/25 focus-visible:border-secondary/50 focus-visible:bg-card transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/40 hover:text-foreground transition-colors duration-150 p-0.5"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/35 hover:text-foreground transition-colors duration-150 p-0.5"
                   aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
@@ -117,7 +145,7 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="flex justify-end pt-0.5">
+            <div className="flex justify-end">
               <button
                 type="button"
                 className="text-[12px] font-semibold text-secondary hover:text-secondary/70 transition-colors duration-150"
@@ -129,10 +157,11 @@ const Login = () => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full h-12 bg-secondary text-secondary-foreground hover:bg-secondary/85 active:scale-[0.98] font-bold rounded-xl transition-all duration-150 text-sm gap-2 shadow-lg shadow-secondary/20 hover:shadow-xl hover:shadow-secondary/25 disabled:opacity-70"
+              className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] font-bold rounded-xl transition-all duration-150 text-sm gap-2 disabled:opacity-70"
+              style={{ boxShadow: '0 4px 20px -4px hsla(207,27%,11%,0.4)' }}
             >
               {isLoading ? (
-                <div className="w-5 h-5 border-2 border-secondary-foreground/30 border-t-secondary-foreground rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
               ) : (
                 <>
                   Sign In
@@ -142,11 +171,27 @@ const Login = () => {
             </Button>
           </form>
 
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-border/60" />
+            <span className="text-[11px] text-muted-foreground/40 font-medium">OR</span>
+            <div className="flex-1 h-px bg-border/60" />
+          </div>
+
+          {/* SSO placeholder */}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full h-11 rounded-xl border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/30 text-sm font-medium"
+          >
+            Continue with SSO
+          </Button>
+
           {/* Footer */}
-          <div className="flex items-center justify-center gap-1.5 mt-10">
-            <Lock className="w-3 h-3 text-muted-foreground/40" />
-            <p className="text-[11px] text-muted-foreground/50 font-medium">
-              Secured by <span className="font-bold text-foreground/60">UNear</span>
+          <div className="flex items-center justify-center gap-1.5 mt-8">
+            <Lock className="w-3 h-3 text-muted-foreground/30" />
+            <p className="text-[11px] text-muted-foreground/40 font-medium">
+              Secured by <span className="font-bold text-foreground/50">UNear</span>
             </p>
           </div>
         </div>
