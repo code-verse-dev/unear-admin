@@ -32,17 +32,16 @@ const Login = () => {
     <div className="min-h-screen flex" style={{ background: 'hsl(207 27% 11%)' }}>
       {/* Left brand panel */}
       <div className="hidden lg:flex lg:w-[46%] relative items-center justify-center p-12 overflow-hidden">
-        {/* Gradient orbs */}
         <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.12) 0%, transparent 65%)' }} />
         <div className="absolute bottom-[-5%] right-[-10%] w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.08) 0%, transparent 60%)' }} />
-        {/* Subtle grid pattern */}
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'linear-gradient(hsla(0,0%,100%,0.1) 1px, transparent 1px), linear-gradient(90deg, hsla(0,0%,100%,0.1) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
         }} />
 
         <div className="relative z-10 max-w-sm text-center">
-          <div className="w-[88px] h-[88px] rounded-3xl overflow-hidden mx-auto mb-10 shadow-2xl" style={{ boxShadow: '0 0 0 4px hsla(41,100%,59%,0.15), 0 20px 60px -10px rgba(0,0,0,0.5)' }}>
+          {/* Animated logo */}
+          <div className="w-[88px] h-[88px] rounded-3xl overflow-hidden mx-auto mb-10 shadow-2xl animate-[pulse_3s_ease-in-out_infinite]" style={{ boxShadow: '0 0 0 4px hsla(41,100%,59%,0.15), 0 20px 60px -10px rgba(0,0,0,0.5)' }}>
             <img src={unearLogo} alt="UNear Logo" className="w-full h-full object-cover" />
           </div>
           <h2 className="text-[28px] font-extrabold tracking-tight font-display mb-2" style={{ color: 'hsl(41 100% 59%)' }}>
@@ -52,7 +51,6 @@ const Login = () => {
             Manage your car-sharing platform with a powerful, intuitive dashboard.
           </p>
 
-          {/* Feature pills */}
           <div className="mt-12 flex items-center justify-center gap-4">
             {featureIcons.map(({ icon: Icon, label }) => (
               <div key={label} className="flex flex-col items-center gap-2">
@@ -64,7 +62,6 @@ const Login = () => {
             ))}
           </div>
 
-          {/* Stats row */}
           <div className="mt-14 flex items-center justify-center gap-8">
             {[
               { value: "12K+", label: "Users" },
@@ -90,7 +87,6 @@ const Login = () => {
             </div>
           </div>
 
-          {/* Header */}
           <div className="mb-8">
             <p className="text-[13px] font-semibold text-secondary tracking-wide mb-1">ADMIN PANEL</p>
             <h1 className="text-[26px] font-extrabold text-foreground tracking-tight font-display leading-tight">
@@ -101,7 +97,6 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-1.5">
               <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
@@ -170,22 +165,6 @@ const Login = () => {
               )}
             </Button>
           </form>
-
-          {/* Divider */}
-          <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-border/60" />
-            <span className="text-[11px] text-muted-foreground/40 font-medium">OR</span>
-            <div className="flex-1 h-px bg-border/60" />
-          </div>
-
-          {/* SSO placeholder */}
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full h-11 rounded-xl border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/30 text-sm font-medium"
-          >
-            Continue with SSO
-          </Button>
 
           {/* Footer */}
           <div className="flex items-center justify-center gap-1.5 mt-8">
