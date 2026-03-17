@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
