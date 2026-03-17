@@ -53,11 +53,11 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'hsl(207 27% 11%)' }}>
+    <div className="min-h-screen flex" style={{ background: 'hsl(20 10% 10%)' }}>
       {/* Left brand panel */}
       <div className="hidden lg:flex lg:w-[46%] relative items-center justify-center p-12 overflow-hidden">
-        <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.12) 0%, transparent 65%)' }} />
-        <div className="absolute bottom-[-5%] right-[-10%] w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(41,100%,59%,0.08) 0%, transparent 60%)' }} />
+        <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(25,40%,38%,0.15) 0%, transparent 65%)' }} />
+        <div className="absolute bottom-[-5%] right-[-10%] w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(25,40%,38%,0.08) 0%, transparent 60%)' }} />
         <div className="absolute inset-0 opacity-[0.03]" style={{
           backgroundImage: 'linear-gradient(hsla(0,0%,100%,0.1) 1px, transparent 1px), linear-gradient(90deg, hsla(0,0%,100%,0.1) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
@@ -65,23 +65,23 @@ const Login = () => {
 
         <div className="relative z-10 max-w-sm text-center">
           {/* Animated logo */}
-          <div className="w-[88px] h-[88px] rounded-3xl overflow-hidden mx-auto mb-10 shadow-2xl animate-[pulse_3s_ease-in-out_infinite]" style={{ boxShadow: '0 0 0 4px hsla(41,100%,59%,0.15), 0 20px 60px -10px rgba(0,0,0,0.5)' }}>
+          <div className="w-[88px] h-[88px] rounded-3xl overflow-hidden mx-auto mb-10 shadow-2xl animate-[pulse_3s_ease-in-out_infinite]" style={{ boxShadow: '0 0 0 4px hsla(25,40%,38%,0.2), 0 20px 60px -10px rgba(0,0,0,0.5)' }}>
             <img src={unearLogo} alt="UNear Logo" className="w-full h-full object-cover" />
           </div>
-          <h2 className="text-[28px] font-extrabold tracking-tight font-display mb-2" style={{ color: 'hsl(41 100% 59%)' }}>
+          <h2 className="text-[28px] font-extrabold tracking-tight font-display mb-2" style={{ color: 'hsl(30 30% 96%)' }}>
             UNear Admin
           </h2>
-          <p className="text-[14px] leading-relaxed max-w-[280px] mx-auto" style={{ color: 'hsla(210,15%,75%,0.6)' }}>
+          <p className="text-[14px] leading-relaxed max-w-[280px] mx-auto" style={{ color: 'hsla(30,10%,70%,0.6)' }}>
             Manage your car-sharing platform with a powerful, intuitive dashboard.
           </p>
 
           <div className="mt-12 flex items-center justify-center gap-4">
             {featureIcons.map(({ icon: Icon, label }) => (
               <div key={label} className="flex flex-col items-center gap-2">
-                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'hsla(41,100%,59%,0.1)' }}>
-                  <Icon className="w-[18px] h-[18px]" style={{ color: 'hsl(41 100% 59%)' }} />
+                <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: 'hsla(25,40%,38%,0.12)' }}>
+                  <Icon className="w-[18px] h-[18px]" style={{ color: 'hsl(25 40% 38%)' }} />
                 </div>
-                <span className="text-[11px] font-medium" style={{ color: 'hsla(210,15%,75%,0.4)' }}>{label}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'hsla(30,10%,70%,0.4)' }}>{label}</span>
               </div>
             ))}
           </div>
@@ -93,8 +93,8 @@ const Login = () => {
               { value: "99.9%", label: "Uptime" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
-                <p className="text-lg font-bold" style={{ color: 'hsl(41 100% 59%)' }}>{stat.value}</p>
-                <p className="text-[10px] font-medium mt-0.5" style={{ color: 'hsla(210,15%,75%,0.35)' }}>{stat.label}</p>
+                <p className="text-lg font-bold" style={{ color: 'hsl(30 30% 96%)' }}>{stat.value}</p>
+                <p className="text-[10px] font-medium mt-0.5" style={{ color: 'hsla(30,10%,70%,0.35)' }}>{stat.label}</p>
               </div>
             ))}
           </div>
@@ -178,7 +178,7 @@ const Login = () => {
               type="submit"
               disabled={isLoading}
               className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] font-bold rounded-xl transition-all duration-150 text-sm gap-2 disabled:opacity-70"
-              style={{ boxShadow: '0 4px 20px -4px hsla(207,27%,11%,0.4)' }}
+              style={{ boxShadow: '0 4px 20px -4px hsla(20,10%,10%,0.4)' }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
