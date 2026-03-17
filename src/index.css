@@ -6,54 +6,54 @@
 
 @layer base {
   :root {
-    --background: 210 12% 96%;
-    --foreground: 207 27% 11%;
+    --background: 30 10% 96%;
+    --foreground: 20 10% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 207 27% 11%;
+    --card-foreground: 20 10% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 207 27% 11%;
+    --popover-foreground: 20 10% 10%;
 
-    --primary: 207 27% 11%;
-    --primary-foreground: 41 100% 59%;
+    --primary: 20 10% 10%;
+    --primary-foreground: 30 30% 96%;
 
-    --secondary: 41 100% 59%;
-    --secondary-foreground: 207 27% 11%;
+    --secondary: 25 40% 38%;
+    --secondary-foreground: 30 30% 96%;
 
-    --muted: 210 10% 92%;
-    --muted-foreground: 210 8% 46%;
+    --muted: 30 8% 91%;
+    --muted-foreground: 20 6% 46%;
 
-    --accent: 41 100% 59%;
-    --accent-foreground: 207 27% 11%;
+    --accent: 25 40% 38%;
+    --accent-foreground: 30 30% 96%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 60% 42%;
+    --success: 152 55% 40%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 36 90% 52%;
-    --warning-foreground: 207 27% 11%;
+    --warning: 36 85% 50%;
+    --warning-foreground: 20 10% 10%;
 
-    --info: 210 80% 52%;
+    --info: 210 70% 50%;
     --info-foreground: 0 0% 100%;
 
-    --border: 210 12% 89%;
-    --input: 210 12% 89%;
-    --ring: 41 100% 59%;
+    --border: 30 8% 88%;
+    --input: 30 8% 88%;
+    --ring: 25 40% 38%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 207 27% 11%;
-    --sidebar-foreground: 210 15% 75%;
-    --sidebar-primary: 41 100% 59%;
-    --sidebar-primary-foreground: 207 27% 11%;
-    --sidebar-accent: 207 22% 17%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 207 22% 17%;
-    --sidebar-ring: 41 100% 59%;
-    --sidebar-muted: 210 10% 50%;
+    --sidebar-background: 20 10% 10%;
+    --sidebar-foreground: 30 10% 70%;
+    --sidebar-primary: 25 40% 38%;
+    --sidebar-primary-foreground: 30 30% 96%;
+    --sidebar-accent: 20 10% 16%;
+    --sidebar-accent-foreground: 30 10% 95%;
+    --sidebar-border: 20 10% 16%;
+    --sidebar-ring: 25 40% 38%;
+    --sidebar-muted: 30 8% 50%;
 
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
     --shadow-card-hover: 0 8px 24px -4px rgb(0 0 0 / 0.08), 0 2px 6px -2px rgb(0 0 0 / 0.04);
