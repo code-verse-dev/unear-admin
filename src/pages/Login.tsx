@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,7 +19,29 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidEmail(forgotEmail)) {
+      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    setForgotLoading(true);
+    // Simulated API call
+    setTimeout(() => {
+      setForgotLoading(false);
+      setForgotSent(true);
+      toast({ title: "Reset Link Sent", description: `A password reset link has been sent to ${forgotEmail}.` });
+    }, 1000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,6 +167,7 @@ const Login = () => {
             <div className="flex justify-end">
               <button
                 type="button"
+                onClick={() => { setForgotEmail(email); setForgotSent(false); setForgotOpen(true); }}
                 className="text-[12px] font-semibold text-secondary hover:text-secondary/70 transition-colors duration-150"
               >
                 Forgot Password?
@@ -175,6 +200,49 @@ const Login = () => {
           </div>
         </div>
       </div>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={forgotOpen} onOpenChange={(open) => { setForgotOpen(open); if (!open) setForgotSent(false); }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Reset Password</DialogTitle>
+            <DialogDescription>Enter your email and we'll send you a reset link.</DialogDescription>
+          </DialogHeader>
+          {forgotSent ? (
+            <div className="flex flex-col items-center gap-3 py-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-success" />
+              </div>
+              <p className="text-sm font-medium">Reset link sent to</p>
+              <p className="text-sm text-muted-foreground">{forgotEmail}</p>
+              <Button variant="outline" className="mt-2" onClick={() => setForgotOpen(false)}>
+                <ArrowLeft className="w-4 h-4 mr-2" /> Back to Login
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">Email Address</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/35 group-focus-within:text-secondary transition-colors" />
+                  <Input
+                    type="email"
+                    placeholder="admin@unear.com"
+                    value={forgotEmail}
+                    onChange={(e) => setForgotEmail(e.target.value)}
+                    required
+                    className="h-12 pl-11 bg-muted/20 border-border/50 rounded-xl text-sm placeholder:text-muted-foreground/35 focus-visible:ring-2 focus-visible:ring-secondary/25 focus-visible:border-secondary/50"
+                  />
+                </div>
+              </div>
+              <Button type="submit" disabled={forgotLoading} className="w-full h-11 font-bold rounded-xl">
+                {forgotLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                Send Reset Link
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
