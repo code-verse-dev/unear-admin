@@ -19,7 +19,29 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  const handleForgotPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidEmail(forgotEmail)) {
+      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
+      return;
+    }
+    setForgotLoading(true);
+    // Simulated API call
+    setTimeout(() => {
+      setForgotLoading(false);
+      setForgotSent(true);
+      toast({ title: "Reset Link Sent", description: `A password reset link has been sent to ${forgotEmail}.` });
+    }, 1000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
