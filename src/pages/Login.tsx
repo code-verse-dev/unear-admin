@@ -178,7 +178,7 @@ const Login = () => {
               type="submit"
               disabled={isLoading}
               className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 active:scale-[0.98] font-bold rounded-xl transition-all duration-150 text-sm gap-2 disabled:opacity-70"
-              style={{ boxShadow: '0 4px 20px -4px hsla(207,27%,11%,0.4)' }}
+              style={{ boxShadow: '0 4px 20px -4px hsla(20,10%,10%,0.4)' }}
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
