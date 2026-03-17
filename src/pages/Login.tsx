@@ -167,6 +167,7 @@ const Login = () => {
             <div className="flex justify-end">
               <button
                 type="button"
+                onClick={() => { setForgotEmail(email); setForgotSent(false); setForgotOpen(true); }}
                 className="text-[12px] font-semibold text-secondary hover:text-secondary/70 transition-colors duration-150"
               >
                 Forgot Password?
