@@ -355,9 +355,11 @@ const RolesPermissionsPage = () => {
             </div>
           </div>
 
-          {/* Permission Matrix */}
-          <div className="mt-4">
-            <h3 className="text-sm font-semibold text-foreground mb-3">Permission Matrix</h3>
+          <div className="h-px bg-border my-2" />
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Lock className="w-4 h-4 text-muted-foreground" />
+            Permission Matrix
+          </h3>
             <div className="border rounded-lg overflow-hidden">
               <Table>
                 <TableHeader>
