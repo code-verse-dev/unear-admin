@@ -171,11 +171,11 @@ const RolesPermissionsPage = () => {
   const roleBadgeColor = (role: string) => {
     const map: Record<string, string> = {
       "Super Admin": "bg-primary text-primary-foreground",
-      "Admin": "bg-accent text-accent-foreground",
-      "Manager": "bg-secondary text-secondary-foreground",
-      "Support Staff": "bg-muted text-muted-foreground",
-      "Finance": "bg-primary/80 text-primary-foreground",
-      "Auditor": "bg-muted text-foreground",
+      "Admin": "bg-secondary text-secondary-foreground",
+      "Manager": "bg-accent text-accent-foreground",
+      "Support Staff": "bg-muted text-foreground border border-border",
+      "Finance": "bg-secondary/80 text-secondary-foreground",
+      "Auditor": "bg-muted text-foreground border border-border",
     };
     return map[role] || "bg-muted text-muted-foreground";
   };
@@ -185,44 +185,71 @@ const RolesPermissionsPage = () => {
       title="Manage Roles & Permissions"
       subtitle="Configure roles, permissions, and user assignments"
       actions={
-        <Button onClick={openCreate} className="gap-2">
+        <Button onClick={openCreate} className="gap-2 shadow-sm">
           <Plus className="w-4 h-4" /> Create a New Role
         </Button>
       }
     >
+      {/* Summary Bar */}
+      <div className="flex items-center gap-6 mt-6 mb-2 px-1">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Shield className="w-4 h-4" />
+          <span><strong className="text-foreground">{roles.length}</strong> Roles</span>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Users className="w-4 h-4" />
+          <span><strong className="text-foreground">{roles.reduce((s, r) => s + r.users, 0)}</strong> Total Users</span>
+        </div>
+      </div>
+
       {/* Roles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-        {roles.map((role) => (
-          <Card key={role.id} className="hover:shadow-md transition-shadow">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3 mb-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground">{role.name}</h3>
-                  <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                    <Users className="w-3.5 h-3.5" />
-                    <span>{role.users} users</span>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mt-4">
+        {roles.map((role) => {
+          const Icon = role.icon;
+          return (
+            <Card key={role.id} className="group hover:shadow-lg transition-all duration-200 border-border/60 overflow-hidden">
+              <CardContent className="p-0">
+                {/* Colored top accent bar */}
+                <div className="h-1 bg-gradient-to-r from-secondary to-primary/60" />
+                <div className="p-5">
+                  <div className="flex items-start gap-3.5 mb-4">
+                    <div className={`p-2.5 rounded-xl ${role.color} transition-transform group-hover:scale-105`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-foreground text-[15px]">{role.name}</h3>
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground mt-1">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>{role.users} users assigned</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{role.description}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {role.permissions.map((perm) => (
+                      <span
+                        key={perm}
+                        className="inline-flex items-center rounded-full bg-muted/80 px-2.5 py-1 text-xs font-medium text-foreground/80 border border-border/40"
+                      >
+                        {perm}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">{role.description}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {role.permissions.map((perm) => (
-                  <Badge key={perm} variant="secondary" className="text-xs font-normal">
-                    {perm}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* All Roles Table */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">All Roles</h2>
+      <div className="mt-10">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">All Roles</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">Manage user role assignments</p>
+          </div>
+        </div>
         <div className="table-container">
           <Table>
             <TableHeader>
@@ -236,10 +263,17 @@ const RolesPermissionsPage = () => {
             </TableHeader>
             <TableBody>
               {users.map((u) => (
-                <TableRow key={u.id} className="hover:bg-muted/30">
-                  <TableCell className="font-medium">{u.firstName} {u.lastName}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.phone}</TableCell>
+                <TableRow key={u.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary">
+                        {u.firstName[0]}{u.lastName[0]}
+                      </div>
+                      <span className="font-medium text-foreground">{u.firstName} {u.lastName}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                  <TableCell className="text-muted-foreground">{u.phone}</TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${roleBadgeColor(u.role)}`}>
                       {u.role}
@@ -247,10 +281,10 @@ const RolesPermissionsPage = () => {
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-8 w-8">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(u)} className="h-8 w-8 hover:bg-secondary/10 hover:text-secondary">
                         <Pencil className="w-4 h-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteUser(u)} className="h-8 w-8 text-destructive hover:text-destructive">
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteUser(u)} className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
