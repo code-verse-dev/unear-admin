@@ -388,7 +388,6 @@ const RolesPermissionsPage = () => {
                 </TableBody>
               </Table>
             </div>
-          </div>
 
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
