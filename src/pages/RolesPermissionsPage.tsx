@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Shield, Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Users } from "lucide-react";
+import { Shield, Plus, Pencil, Trash2, Eye, EyeOff, Loader2, Users, ShieldCheck, ShieldAlert, Headphones, DollarSign, Search as SearchIcon, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface RoleCard {
@@ -47,6 +47,8 @@ interface RoleCard {
   users: number;
   description: string;
   permissions: string[];
+  icon: React.ElementType;
+  color: string;
 }
 
 interface RoleUser {
@@ -59,12 +61,12 @@ interface RoleUser {
 }
 
 const defaultRoles: RoleCard[] = [
-  { id: "1", name: "Super Admin", users: 3, description: "Full system access", permissions: ["All Access"] },
-  { id: "2", name: "Admin", users: 8, description: "Manage core operations", permissions: ["Users", "Vendors", "Vehicles", "Bookings"] },
-  { id: "3", name: "Manager", users: 15, description: "Operational oversight", permissions: ["View Reports", "Approve Vendors", "Support"] },
-  { id: "4", name: "Support Staff", users: 24, description: "Customer service", permissions: ["Customer Support", "View Tickets"] },
-  { id: "5", name: "Finance", users: 6, description: "Financial operations", permissions: ["Payments", "Payouts", "Reports"] },
-  { id: "6", name: "Auditor", users: 4, description: "Read-only access", permissions: ["View Only", "Logs", "Reports"] },
+  { id: "1", name: "Super Admin", users: 3, description: "Full system access", permissions: ["All Access"], icon: ShieldCheck, color: "bg-primary/10 text-primary" },
+  { id: "2", name: "Admin", users: 8, description: "Manage core operations", permissions: ["Users", "Vendors", "Vehicles", "Bookings"], icon: Shield, color: "bg-secondary/15 text-secondary" },
+  { id: "3", name: "Manager", users: 15, description: "Operational oversight", permissions: ["View Reports", "Approve Vendors", "Support"], icon: Users, color: "bg-accent/15 text-accent" },
+  { id: "4", name: "Support Staff", users: 24, description: "Customer service", permissions: ["Customer Support", "View Tickets"], icon: Headphones, color: "bg-primary/8 text-primary" },
+  { id: "5", name: "Finance", users: 6, description: "Financial operations", permissions: ["Payments", "Payouts", "Reports"], icon: DollarSign, color: "bg-secondary/15 text-secondary" },
+  { id: "6", name: "Auditor", users: 4, description: "Read-only access", permissions: ["View Only", "Logs", "Reports"], icon: SearchIcon, color: "bg-muted text-muted-foreground" },
 ];
 
 const defaultUsers: RoleUser[] = [
