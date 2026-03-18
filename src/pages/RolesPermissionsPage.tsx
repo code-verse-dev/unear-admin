@@ -300,7 +300,15 @@ const RolesPermissionsPage = () => {
       <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editUser ? "Edit User Role" : "Create a New Role"}</DialogTitle>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Shield className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg">{editUser ? "Edit User Role" : "Create a New Role"}</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-0.5">{editUser ? "Update user details and permissions" : "Add a new user with role and permissions"}</p>
+              </div>
+            </div>
           </DialogHeader>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
