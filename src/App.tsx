@@ -16,6 +16,7 @@ import FaqsPage from "@/pages/FaqsPage";
 import PagesPage from "@/pages/PagesPage";
 import PushNotificationsPage from "@/pages/PushNotificationsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import RolesPermissionsPage from "@/pages/RolesPermissionsPage";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 import SplashScreen from "@/components/SplashScreen";
@@ -46,6 +47,7 @@ const App = () => {
               <Route path="/faqs" element={<FaqsPage />} />
               <Route path="/pages" element={<PagesPage />} />
               <Route path="/notifications" element={<PushNotificationsPage />} />
+              <Route path="/roles" element={<RolesPermissionsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

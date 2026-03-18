@@ -9,6 +9,7 @@ import {
   HelpCircle,
   FileEdit,
   Bell,
+  Shield,
   Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
@@ -39,6 +40,7 @@ const navItems = [
   { title: "FAQs", url: "/faqs", icon: HelpCircle },
   { title: "Pages", url: "/pages", icon: FileEdit },
   { title: "Push Notifications", url: "/notifications", icon: Bell },
+  { title: "Roles & Permissions", url: "/roles", icon: Shield },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
