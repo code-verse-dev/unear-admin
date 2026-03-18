@@ -9,6 +9,7 @@ import {
   HelpCircle,
   FileEdit,
   Bell,
+  Shield,
   Settings,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
