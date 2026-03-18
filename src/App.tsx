@@ -47,6 +47,7 @@ const App = () => {
               <Route path="/faqs" element={<FaqsPage />} />
               <Route path="/pages" element={<PagesPage />} />
               <Route path="/notifications" element={<PushNotificationsPage />} />
+              <Route path="/roles" element={<RolesPermissionsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
