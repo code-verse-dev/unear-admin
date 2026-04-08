@@ -15,7 +15,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { getAdminSession } from "@/lib/auth-session";
+import { adminLogout } from "@/lib/admin-api";
 
 const initialNotifications = [
   { id: 1, icon: UserPlus, title: "New user registered", desc: "Ahmed Khan joined the platform", time: "2 min ago", read: false },
@@ -28,6 +30,12 @@ const initialNotifications = [
 const AdminLayout = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState(initialNotifications);
+  const displayName = useMemo(() => {
+    const s = getAdminSession();
+    if (!s) return "Admin";
+    const full = [s.firstname, s.lastname].filter(Boolean).join(" ").trim();
+    return full || s.name || s.email || "Admin";
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -39,8 +47,13 @@ const AdminLayout = () => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
-  const handleLogout = () => {
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      await adminLogout();
+    } catch {
+      /* session cleared in adminLogout finally */
+    }
+    navigate("/login", { replace: true });
   };
 
   return (
@@ -113,7 +126,7 @@ const AdminLayout = () => {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48 rounded-xl">
                   <DropdownMenuItem className="text-sm font-medium cursor-pointer" disabled>
-                    <User className="w-4 h-4 mr-2" /> Admin User
+                    <User className="w-4 h-4 mr-2" /> {displayName}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-sm font-medium text-destructive cursor-pointer focus:text-destructive">

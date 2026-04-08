@@ -5,8 +5,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import unearLogo from "@/assets/unear-logo.png";
+import { getAdminSession } from "@/lib/auth-session";
+import { adminForgotPassword, adminLogin } from "@/lib/admin-api";
 
 const featureIcons = [
   { icon: Users, label: "Users" },
@@ -28,28 +30,61 @@ const Login = () => {
 
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  if (getAdminSession()?.api_token) {
+    return <Navigate to="/" replace />;
+  }
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValidEmail(forgotEmail)) {
       toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
       return;
     }
+    if (!import.meta.env.VITE_CLIENT_ID?.trim()) {
+      toast({
+        title: "Configuration",
+        description: "Set VITE_CLIENT_ID in .env (same as backend CLIENT_ID).",
+        variant: "destructive",
+      });
+      return;
+    }
     setForgotLoading(true);
-    // Simulated API call
-    setTimeout(() => {
-      setForgotLoading(false);
+    try {
+      await adminForgotPassword(forgotEmail.trim());
       setForgotSent(true);
-      toast({ title: "Reset Link Sent", description: `A password reset link has been sent to ${forgotEmail}.` });
-    }, 1000);
+      toast({
+        title: "Check your email",
+        description: `If an admin account exists for ${forgotEmail}, a reset link was sent.`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not send reset email.";
+      toast({ title: "Request failed", description: message, variant: "destructive" });
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!import.meta.env.VITE_CLIENT_ID?.trim()) {
+      toast({
+        title: "Configuration",
+        description: "Set VITE_CLIENT_ID in .env (same as backend CLIENT_ID).",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      await adminLogin(email.trim(), password);
+      toast({ title: "Signed in", description: "Welcome back." });
+      navigate("/", { replace: true });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Login failed.";
+      toast({ title: "Sign in failed", description: message, variant: "destructive" });
+    } finally {
       setIsLoading(false);
-      navigate("/");
-    }, 600);
+    }
   };
 
   return (

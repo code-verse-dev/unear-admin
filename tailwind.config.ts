@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['"DM Sans"', 'system-ui', 'sans-serif'],
+        poppins: ['"Poppins"', "system-ui", "-apple-system", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",

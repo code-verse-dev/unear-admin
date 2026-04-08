@@ -1,4 +1,4 @@
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Loader2, Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,8 @@ interface SearchFilterProps {
     onChange: (value: string) => void;
   }[];
   onReset?: () => void;
+  /** Small spinner inside the search field (e.g. list refetch). */
+  isSearching?: boolean;
 }
 
 const SearchFilter = ({
@@ -33,17 +35,27 @@ const SearchFilter = ({
   onSearchChange,
   filters = [],
   onReset,
+  isSearching = false,
 }: SearchFilterProps) => {
   return (
     <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
       <div className="relative flex-1 min-w-[240px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
         <Input
           placeholder={searchPlaceholder}
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-9 bg-card border-border"
+          aria-busy={isSearching}
+          className={`pl-9 bg-card border-border ${isSearching ? "pr-9" : ""}`}
         />
+        {isSearching ? (
+          <div
+            className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground"
+            aria-hidden
+          >
+            <Loader2 className="w-3.5 h-3.5 animate-spin opacity-70" />
+          </div>
+        ) : null}
       </div>
       {filters.map((filter) => (
         <Select key={filter.label} value={filter.value} onValueChange={filter.onChange}>
