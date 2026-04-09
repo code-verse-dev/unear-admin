@@ -76,14 +76,28 @@ function clientId(): string {
 
 export function getAuthAuthorizationHeader(): string | null {
   const s = getAdminSession();
-  if (!s?.api_token) return null;
-  return `Bearer ${s.api_token}`;
+  const token = s?.api_token?.trim();
+  if (!token) return null;
+  // Backend accepts Bearer + base64(JWT) (login response) or raw JWT (three segments).
+  return `Bearer ${token}`;
 }
 
 type FetchOptions = Omit<RequestInit, "headers"> & {
   headers?: Record<string, string>;
   auth?: boolean;
 };
+
+let adminUnauthorizedRedirectScheduled = false;
+
+function redirectToAdminLoginSessionExpired(): void {
+  if (adminUnauthorizedRedirectScheduled) return;
+  adminUnauthorizedRedirectScheduled = true;
+  clearAdminSession();
+  const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+  const prefix = base === "" || base === "/" ? "" : base;
+  const loginUrl = `${window.location.origin}${prefix}/login?reason=session`;
+  window.location.replace(loginUrl);
+}
 
 /** Authenticated admin API request (add `token` + optional `Authorization`). */
 export async function adminFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
@@ -102,12 +116,17 @@ export async function adminFetch<T>(path: string, options: FetchOptions = {}): P
 
   const res = await fetch(`${apiBase()}${path}`, { ...rest, headers });
   const json = (await res.json().catch(() => ({}))) as ApiSuccess<T> | ApiErrorBody;
+  const errBody = json as ApiErrorBody;
+  const codeFromBody = typeof errBody.code === "number" ? errBody.code : undefined;
+  const isUnauthorized = res.status === 401 || codeFromBody === 401;
 
-  if (!res.ok || (json as ApiErrorBody).code >= 400) {
-    const msg =
-      (json as ApiErrorBody).message ||
-      res.statusText ||
-      "Request failed";
+  if (auth && isUnauthorized) {
+    redirectToAdminLoginSessionExpired();
+    throw new Error(errBody.message || "Session expired. Please sign in again.");
+  }
+
+  if (!res.ok || errBody.code >= 400) {
+    const msg = errBody.message || res.statusText || "Request failed";
     throw new Error(msg);
   }
 

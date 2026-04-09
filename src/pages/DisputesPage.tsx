@@ -4,8 +4,18 @@ import SearchFilter from "@/components/SearchFilter";
 import DataTable, { Column } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Eye, FileText, Loader2 } from "lucide-react";
+import { Eye, FileText, Loader2, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -24,6 +34,7 @@ import {
   type DisputeRequestsListParams,
 } from "@/api/disputeRequests";
 import {
+  useDeleteDisputeRequestMutation,
   useDisputeRequestDetailQuery,
   useDisputeRequestsListQuery,
   useUpdateDisputeRequestMutation,
@@ -74,6 +85,7 @@ const DisputesPage = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<AdminDisputeRequest | null>(null);
   const [statusDraft, setStatusDraft] = useState<string>("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -103,6 +115,7 @@ const DisputesPage = () => {
 
   const { data, isLoading, isFetching, isError, error, refetch } = useDisputeRequestsListQuery(listParams);
   const updateMut = useUpdateDisputeRequestMutation();
+  const deleteMut = useDeleteDisputeRequestMutation();
 
   const detailId = sheetOpen && selected ? selected.id : 0;
   const detailQuery = useDisputeRequestDetailQuery(detailId, sheetOpen);
@@ -130,6 +143,24 @@ const DisputesPage = () => {
   };
 
   const displayDispute = detailQuery.data ?? selected;
+
+  const confirmDeleteDispute = async () => {
+    if (!displayDispute) return;
+    const id = displayDispute.id;
+    try {
+      await deleteMut.mutateAsync(id);
+      setDeleteDialogOpen(false);
+      setSheetOpen(false);
+      setSelected(null);
+      toast({ title: "Dispute deleted", description: `Request #${id} was removed.` });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
 
   const saveStatus = async () => {
     if (!displayDispute) return;
@@ -288,7 +319,10 @@ const DisputesPage = () => {
         open={sheetOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);
-          if (!open) setSelected(null);
+          if (!open) {
+            setSelected(null);
+            setDeleteDialogOpen(false);
+          }
         }}
       >
         <SheetContent
@@ -424,16 +458,28 @@ const DisputesPage = () => {
                   </div>
                 </div>
               </div>
-              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
-                  Close
+              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="sm:mr-auto"
+                  disabled={deleteMut.isPending}
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete
                 </Button>
-                <Button type="button" disabled={updateMut.isPending} onClick={() => void saveStatus()}>
-                  {updateMut.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  ) : null}
-                  Save status
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+                    Close
+                  </Button>
+                  <Button type="button" disabled={updateMut.isPending} onClick={() => void saveStatus()}>
+                    {updateMut.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    ) : null}
+                    Save status
+                  </Button>
+                </div>
               </SheetFooter>
             </>
           ) : detailQuery.isLoading ? (
@@ -443,6 +489,35 @@ const DisputesPage = () => {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete dispute request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove dispute #{displayDispute?.id} from the list. The record is soft-deleted and will no
+              longer appear here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDeleteDispute();
+              }}
+            >
+              {deleteMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   );
 };

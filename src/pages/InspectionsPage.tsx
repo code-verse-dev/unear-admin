@@ -4,8 +4,18 @@ import SearchFilter from "@/components/SearchFilter";
 import DataTable, { Column } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Eye, ExternalLink, Loader2 } from "lucide-react";
+import { Eye, ExternalLink, Loader2, Trash2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -18,12 +28,13 @@ import { useToast } from "@/hooks/use-toast";
 import {
   INSPECTIONS_PAGE_SIZE_DEFAULT,
   INSPECTION_REQUEST_STATUS,
-  formatInspectionAvailability,
+  inspectionAvailabilityLines,
   inspectionReportHref,
   type AdminInspectionRequest,
   type InspectionRequestsListParams,
 } from "@/api/inspectionRequests";
 import {
+  useDeleteInspectionRequestMutation,
   useInspectionRequestDetailQuery,
   useInspectionRequestsListQuery,
   useUpdateInspectionRequestMutation,
@@ -82,6 +93,7 @@ const InspectionsPage = () => {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<AdminInspectionRequest | null>(null);
   const [statusDraft, setStatusDraft] = useState<string>("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -111,6 +123,7 @@ const InspectionsPage = () => {
 
   const { data, isLoading, isFetching, isError, error, refetch } = useInspectionRequestsListQuery(listParams);
   const updateMut = useUpdateInspectionRequestMutation();
+  const deleteMut = useDeleteInspectionRequestMutation();
 
   const detailId = sheetOpen && selected ? selected.id : 0;
   const detailQuery = useInspectionRequestDetailQuery(detailId, sheetOpen);
@@ -142,6 +155,24 @@ const InspectionsPage = () => {
   };
 
   const displayRow = detailQuery.data ?? selected;
+
+  const confirmDeleteInspection = async () => {
+    if (!displayRow) return;
+    const id = displayRow.id;
+    try {
+      await deleteMut.mutateAsync(id);
+      setDeleteDialogOpen(false);
+      setSheetOpen(false);
+      setSelected(null);
+      toast({ title: "Inspection request deleted", description: `Request #${id} was removed.` });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    }
+  };
 
   const saveStatus = async () => {
     if (!displayRow) return;
@@ -221,6 +252,7 @@ const InspectionsPage = () => {
   ];
 
   const reportHref = displayRow ? inspectionReportHref(displayRow.report_url) : null;
+  const availabilityLines = displayRow ? inspectionAvailabilityLines(displayRow.availability) : [];
 
   return (
     <PageContainer fullWidth title="Inspection Requests" subtitle="Review vehicle inspection requests and status">
@@ -279,7 +311,10 @@ const InspectionsPage = () => {
         open={sheetOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);
-          if (!open) setSelected(null);
+          if (!open) {
+            setSelected(null);
+            setDeleteDialogOpen(false);
+          }
         }}
       >
         <SheetContent
@@ -313,6 +348,12 @@ const InspectionsPage = () => {
                       <span className="text-xs text-muted-foreground">Account user</span>
                       <div className="font-medium leading-tight">{accountUserLabel(displayRow)}</div>
                       <p className="text-xs text-muted-foreground">User #{displayRow.user_id}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-muted-foreground">Vehicle ID</span>
+                      <div className="font-mono text-xs tabular-nums">
+                        {displayRow.vehicle_id != null ? displayRow.vehicle_id : "—"}
+                      </div>
                     </div>
                     <div>
                       <span className="text-xs text-muted-foreground">Vehicle name</span>
@@ -371,9 +412,21 @@ const InspectionsPage = () => {
                     ) : null}
                     <div className="sm:col-span-2">
                       <span className="text-xs text-muted-foreground">Availability</span>
-                      <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-muted/30 p-3 text-xs">
-                        {formatInspectionAvailability(displayRow.availability)}
-                      </pre>
+                      {availabilityLines.length === 0 ? (
+                        <p className="mt-1 text-sm text-muted-foreground">—</p>
+                      ) : (
+                        <ul className="mt-2 max-h-48 space-y-2 overflow-y-auto rounded-md border border-border bg-muted/30 p-3 text-sm leading-snug">
+                          {availabilityLines.map((line, i) => (
+                            <li key={`${i}-${line.slice(0, 24)}`} className="flex gap-2 pl-0">
+                              <span
+                                className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70"
+                                aria-hidden
+                              />
+                              <span>{line}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
                   </div>
 
@@ -395,16 +448,28 @@ const InspectionsPage = () => {
                   </div>
                 </div>
               </div>
-              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
-                  Close
+              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="sm:mr-auto"
+                  disabled={deleteMut.isPending}
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                  Delete
                 </Button>
-                <Button type="button" disabled={updateMut.isPending} onClick={() => void saveStatus()}>
-                  {updateMut.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  ) : null}
-                  Save status
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+                    Close
+                  </Button>
+                  <Button type="button" disabled={updateMut.isPending} onClick={() => void saveStatus()}>
+                    {updateMut.isPending ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                    ) : null}
+                    Save status
+                  </Button>
+                </div>
               </SheetFooter>
             </>
           ) : detailQuery.isLoading ? (
@@ -414,6 +479,35 @@ const InspectionsPage = () => {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete inspection request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove inspection #{displayRow?.id} from the list. The record is soft-deleted and will no
+              longer appear here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmDeleteInspection();
+              }}
+            >
+              {deleteMut.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageContainer>
   );
 };

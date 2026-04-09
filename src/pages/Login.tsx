@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, ArrowRight, Lock, Mail, KeyRound, Users, Car, MapPin, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, useSearchParams } from "react-router-dom";
 import unearLogo from "@/assets/unear-logo.png";
 import { getAdminSession } from "@/lib/auth-session";
 import { adminForgotPassword, adminLogin } from "@/lib/admin-api";
@@ -26,9 +26,36 @@ const Login = () => {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+  useEffect(() => {
+    const reason = searchParams.get("reason");
+    if (reason === "session") {
+      toast({
+        title: "Session expired",
+        description: "Your session ended. Please sign in again.",
+        variant: "destructive",
+      });
+    } else if (reason === "password") {
+      toast({
+        title: "Password updated",
+        description: "Sign in with your new password.",
+      });
+    } else {
+      return;
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("reason");
+        return next;
+      },
+      { replace: true }
+    );
+  }, [searchParams, setSearchParams, toast]);
 
   if (getAdminSession()?.api_token) {
     return <Navigate to="/" replace />;
@@ -88,7 +115,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: 'hsl(20 10% 10%)' }}>
+    <div className="flex min-h-screen w-full min-w-0 flex-col lg:flex-row" style={{ background: "hsl(20 10% 10%)" }}>
       {/* Left brand panel */}
       <div className="hidden lg:flex lg:w-[46%] relative items-center justify-center p-12 overflow-hidden">
         <div className="absolute top-[-10%] left-[-5%] w-[400px] h-[400px] rounded-full" style={{ background: 'radial-gradient(circle, hsla(25,40%,38%,0.15) 0%, transparent 65%)' }} />
@@ -137,8 +164,11 @@ const Login = () => {
       </div>
 
       {/* Right login panel */}
-      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 bg-card rounded-l-[2rem] lg:rounded-l-[2.5rem] relative" style={{ boxShadow: '-10px 0 40px -10px rgba(0,0,0,0.1)' }}>
-        <div className="w-full max-w-[380px]">
+      <div
+        className="relative flex flex-1 items-center justify-center bg-card p-5 sm:p-8 lg:rounded-l-[2.5rem]"
+        style={{ boxShadow: "-10px 0 40px -10px rgba(0,0,0,0.1)" }}
+      >
+        <div className="w-full min-w-0 max-w-[380px]">
           {/* Mobile logo */}
           <div className="flex justify-center mb-8 lg:hidden">
             <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg border border-border/40">
