@@ -118,16 +118,18 @@
   }
 
   .table-container {
-    @apply bg-card rounded-xl border border-border overflow-hidden;
+    @apply bg-card max-w-full rounded-xl border border-border;
     box-shadow: var(--shadow-card);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .page-header {
-    @apply mb-8;
+    @apply mb-6 sm:mb-8;
   }
 
   .page-title {
-    @apply text-2xl font-bold text-foreground tracking-tight;
+    @apply text-xl font-bold tracking-tight text-foreground sm:text-2xl;
     font-family: 'DM Sans', system-ui, sans-serif;
   }
 

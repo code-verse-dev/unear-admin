@@ -1,16 +1,19 @@
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Users,
   Car,
-  MapPin,
+  CalendarCheck,
   DollarSign,
   AlertTriangle,
   ClipboardCheck,
-  TrendingUp,
+  Loader2,
+  FileWarning,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
 import MetricCard from "@/components/MetricCard";
-import ActivityFeed, { ActivityItem } from "@/components/ActivityFeed";
+import ActivityFeed, { type ActivityItem } from "@/components/ActivityFeed";
 import PageContainer from "@/components/PageContainer";
+import { Button } from "@/components/ui/button";
 import {
   LineChart,
   Line,
@@ -21,123 +24,292 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
+import { useToast } from "@/hooks/use-toast";
+import { useAdminDashboardQuery } from "@/hooks/useAdminDashboard";
+import type { DashboardActivityItem } from "@/api/adminDashboard";
+import { getRollingMonthKeys, seriesForMonths } from "@/lib/dashboardSeries";
+import { cn } from "@/lib/utils";
 
-const tripData = [
-  { day: "Mon", trips: 45 },
-  { day: "Tue", trips: 62 },
-  { day: "Wed", trips: 58 },
-  { day: "Thu", trips: 71 },
-  { day: "Fri", trips: 89 },
-  { day: "Sat", trips: 95 },
-  { day: "Sun", trips: 78 },
-];
+const MONTHS = 12;
 
-const revenueData = [
-  { month: "Jan", revenue: 4200 },
-  { month: "Feb", revenue: 5100 },
-  { month: "Mar", revenue: 4800 },
-  { month: "Apr", revenue: 6300 },
-  { month: "May", revenue: 7200 },
-  { month: "Jun", revenue: 6800 },
-];
+const chartTooltipProps = {
+  contentStyle: {
+    backgroundColor: "hsl(var(--card))",
+    border: "1px solid hsl(var(--border))",
+    borderRadius: "8px",
+    fontSize: "12px",
+  },
+} as const;
 
-const userRegData = [
-  { week: "W1", users: 12 },
-  { week: "W2", users: 18 },
-  { week: "W3", users: 24 },
-  { week: "W4", users: 15 },
-  { week: "W5", users: 32 },
-  { week: "W6", users: 28 },
-];
+function formatUsd(n: number): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(n) ? n : 0);
+}
 
-const activities: ActivityItem[] = [
-  { id: "1", message: "New user John Doe registered", time: "5 min ago", type: "user" },
-  { id: "2", message: "Vehicle Tesla Model 3 added by Sarah", time: "12 min ago", type: "vehicle" },
-  { id: "3", message: "Dispute #1042 submitted by Mike", time: "25 min ago", type: "dispute" },
-  { id: "4", message: "Inspection requested for BMW X5", time: "1 hour ago", type: "inspection" },
-  { id: "5", message: "Trip #3021 completed successfully", time: "2 hours ago", type: "trip" },
-  { id: "6", message: "New user Emily Chen registered", time: "3 hours ago", type: "user" },
-];
+function formatInt(n: number): string {
+  return new Intl.NumberFormat(undefined).format(Math.round(Number.isFinite(n) ? n : 0));
+}
+
+/** Percent change: current vs previous 30-day window (for signups, bookings, listings, revenue). */
+function trendVsPrior30d(current: number, previous: number): { value: number; label: string } {
+  const label = "vs prior 30 days";
+  if (previous <= 0 && current <= 0) return { value: 0, label };
+  if (previous <= 0) return { value: 100, label };
+  const pct = ((current - previous) / previous) * 100;
+  return { value: Math.round(pct * 10) / 10, label };
+}
+
+function mapActivityItem(row: DashboardActivityItem): ActivityItem {
+  const kindMap: Record<string, ActivityItem["type"]> = {
+    user_registered: "user",
+    vehicle_listed: "vehicle",
+    dispute_submitted: "dispute",
+    inspection_request: "inspection",
+    expense_claim: "claim",
+  };
+  let time = "";
+  try {
+    time = formatDistanceToNow(new Date(row.created_at), { addSuffix: true });
+  } catch {
+    time = row.created_at;
+  }
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.message,
+    time,
+    type: kindMap[row.kind] ?? "user",
+    to: row.path || undefined,
+  };
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-10 animate-pulse">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="admin-card h-36 bg-muted/40" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+        <div className="xl:col-span-8 space-y-8">
+          <div className="admin-card h-80 bg-muted/40" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="admin-card h-72 bg-muted/40" />
+            <div className="admin-card h-72 bg-muted/40" />
+          </div>
+        </div>
+        <div className="xl:col-span-4 admin-card min-h-[280px] bg-muted/40" />
+      </div>
+    </div>
+  );
+}
 
 const Dashboard = () => {
+  const { toast } = useToast();
+  const { data, isLoading, isError, error, refetch, isFetching } = useAdminDashboardQuery();
+
+  useEffect(() => {
+    if (isError && error instanceof Error) {
+      toast({ title: "Dashboard failed to load", description: error.message, variant: "destructive" });
+    }
+  }, [isError, error, toast]);
+
+  const monthKeys = useMemo(() => getRollingMonthKeys(MONTHS), []);
+
+  const chartBookings = useMemo(() => {
+    if (!data?.dashboardGraphData?.bookingsByMonth) return [];
+    return seriesForMonths(monthKeys, data.dashboardGraphData.bookingsByMonth, "total");
+  }, [data?.dashboardGraphData?.bookingsByMonth, monthKeys]);
+
+  const chartCompletedRentals = useMemo(() => {
+    if (!data?.dashboardGraphData?.rentalGraph) return [];
+    return seriesForMonths(monthKeys, data.dashboardGraphData.rentalGraph, "total_purchases");
+  }, [data?.dashboardGraphData?.rentalGraph, monthKeys]);
+
+  const chartPurchases = useMemo(() => {
+    if (!data?.dashboardGraphData?.purchaseGraph) return [];
+    return seriesForMonths(monthKeys, data.dashboardGraphData.purchaseGraph, "total_purchases");
+  }, [data?.dashboardGraphData?.purchaseGraph, monthKeys]);
+
+  const chartUsers = useMemo(() => {
+    if (!data?.dashboardGraphData?.usersByMonth) return [];
+    return seriesForMonths(monthKeys, data.dashboardGraphData.usersByMonth, "total");
+  }, [data?.dashboardGraphData?.usersByMonth, monthKeys]);
+
+  const mergedTrend = useMemo(
+    () =>
+      monthKeys.map((_, i) => ({
+        label: chartBookings[i]?.label ?? "",
+        bookings: chartBookings[i]?.value ?? 0,
+        completed: chartCompletedRentals[i]?.value ?? 0,
+      })),
+    [chartBookings, chartCompletedRentals, monthKeys]
+  );
+
+  const activities = useMemo(
+    () => (data?.recent_activity ?? []).map(mapActivityItem),
+    [data?.recent_activity]
+  );
+
+  const stats = data?.dashboardStats;
+  const platformRevenue = stats
+    ? stats.total_rental_commission + stats.total_purchase_commission + stats.total_inspection_earning
+    : 0;
+  const activeListings =
+    stats != null ? stats.total_rented_vehicles + stats.total_listed_vehicles : 0;
+
   return (
-    <PageContainer title="Dashboard" subtitle="Platform overview and analytics">
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-        <MetricCard title="Total Users" value="1,247" icon={Users} variant="primary" trend={{ value: 12.5, label: "vs last month" }} />
-        <MetricCard title="Active Vehicles" value="342" icon={Car} variant="secondary" trend={{ value: 8.2, label: "vs last month" }} />
-        <MetricCard title="Total Trips" value="5,891" icon={MapPin} variant="success" trend={{ value: 15.3, label: "vs last month" }} />
-        <MetricCard title="Revenue" value="$48.2K" icon={DollarSign} variant="info" trend={{ value: 22.1, label: "vs last month" }} />
-        <MetricCard title="Pending Disputes" value="18" icon={AlertTriangle} variant="warning" trend={{ value: -5.2, label: "vs last month" }} />
-        <MetricCard title="Inspections" value="24" icon={ClipboardCheck} variant="primary" trend={{ value: 3.8, label: "vs last month" }} />
-      </div>
-
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-        <div className="admin-card">
-          <h3 className="text-base font-semibold text-card-foreground mb-4">Trips Per Day</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <LineChart data={tripData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
-              />
-              <Line type="monotone" dataKey="trips" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
+    <PageContainer fullWidth title="Dashboard">
+      {isLoading && !data ? (
+        <DashboardSkeleton />
+      ) : isError && !data ? (
+        <div className="admin-card max-w-md flex flex-col items-start gap-4 py-10">
+          <p className="text-sm text-muted-foreground">Could not load dashboard data.</p>
+          <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
+            {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : "Try again"}
+          </Button>
         </div>
-
-        <div className="admin-card">
-          <h3 className="text-base font-semibold text-card-foreground mb-4">Revenue Overview</h3>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
+      ) : stats ? (
+        <div className="space-y-10">
+          <section className="space-y-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+              <MetricCard
+                title="App users"
+                value={formatInt(stats.total_users)}
+                icon={Users}
+                variant="primary"
+                trend={trendVsPrior30d(stats.new_users_30d ?? 0, stats.new_users_prev_30d ?? 0)}
+                hint={`${formatInt(stats.new_users_30d ?? 0)} new in last 30 days`}
               />
-              <Bar dataKey="revenue" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 admin-card">
-          <h3 className="text-base font-semibold text-card-foreground mb-4">New User Registrations</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={userRegData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                }}
+              <MetricCard
+                title="Bookings"
+                value={formatInt(stats.total_bookings)}
+                icon={CalendarCheck}
+                variant="info"
+                trend={trendVsPrior30d(stats.new_bookings_30d ?? 0, stats.new_bookings_prev_30d ?? 0)}
+                hint={`${formatInt(stats.new_bookings_30d ?? 0)} created in last 30 days`}
               />
-              <Line type="monotone" dataKey="users" stroke="hsl(var(--info))" strokeWidth={2} dot={{ r: 4 }} />
-            </LineChart>
-          </ResponsiveContainer>
+              <MetricCard
+                title="Platform revenue"
+                value={formatUsd(platformRevenue)}
+                icon={DollarSign}
+                variant="info"
+                trend={trendVsPrior30d(stats.period_revenue_30d ?? 0, stats.period_revenue_prev_30d ?? 0)}
+                hint={`${formatUsd(stats.period_revenue_30d ?? 0)} earned in last 30 days (bookings, purchases, inspections)`}
+              />
+              <MetricCard
+                title="Active listings"
+                value={formatInt(activeListings)}
+                icon={Car}
+                variant="secondary"
+                trend={trendVsPrior30d(stats.new_vehicles_30d ?? 0, stats.new_vehicles_prev_30d ?? 0)}
+                hint={`${formatInt(stats.new_vehicles_30d ?? 0)} new vehicles listed in last 30 days (rent + sale)`}
+              />
+            </div>
+            <div className="grid grid-cols-1 border-t border-border/60 pt-6 sm:grid-cols-3 gap-5">
+              <MetricCard
+                title="Open disputes"
+                value={formatInt(stats.pending_disputes)}
+                icon={AlertTriangle}
+                variant="warning"
+              />
+              <MetricCard
+                title="Inspections in queue"
+                value={formatInt(stats.open_inspections)}
+                icon={ClipboardCheck}
+                variant="primary"
+                hint="Unpaid or requested"
+              />
+              <MetricCard
+                title="Expense claims"
+                value={formatInt(stats.pending_expense_claims)}
+                icon={FileWarning}
+                variant="destructive"
+                hint="Pending or under review"
+              />
+            </div>
+          </section>
+
+          <div className="grid min-h-0 grid-cols-1 items-stretch gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-stretch">
+            <div className="min-h-0 min-w-0 space-y-6">
+              <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                <p className="mb-4 text-sm font-medium text-card-foreground">Bookings vs completed trips</p>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={mergedTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
+                    <Tooltip {...chartTooltipProps} />
+                    <Legend wrapperStyle={{ fontSize: "12px" }} />
+                    <Line
+                      type="monotone"
+                      dataKey="bookings"
+                      name="Bookings created"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="completed"
+                      name="Completed trips"
+                      stroke="hsl(var(--secondary))"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                  <p className="mb-4 text-sm font-medium text-card-foreground">Purchase closings</p>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={chartPurchases} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
+                      <Tooltip {...chartTooltipProps} />
+                      <Bar dataKey="value" name="Purchases" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                  <p className="mb-4 text-sm font-medium text-card-foreground">New signups</p>
+                  <ResponsiveContainer width="100%" height={260}>
+                    <LineChart data={chartUsers} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
+                      <Tooltip {...chartTooltipProps} />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        name="Users"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:h-full xl:min-h-0">
+              <ActivityFeed activities={activities} />
+            </div>
+          </div>
         </div>
-        <ActivityFeed activities={activities} />
-      </div>
+      ) : null}
     </PageContainer>
   );
 };

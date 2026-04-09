@@ -1,6 +1,7 @@
 import {
   useMutation,
   useQuery,
+  useInfiniteQuery,
   useQueryClient,
   keepPreviousData,
 } from "@tanstack/react-query";
@@ -15,7 +16,9 @@ import {
   toggleUserVerification,
   usersQueryKeyRoot,
   usersListQueryKey,
+  usersInfiniteListQueryKey,
   userDetailQueryKey,
+  USERS_INFINITE_PAGE_SIZE,
   type UsersListParams,
   type UpdateUserBody,
   type AppUser,
@@ -34,6 +37,29 @@ export function useUsersListQuery(params: UsersListParams) {
     queryKey: usersListQueryKey(params),
     queryFn: () => listUsers(params),
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Paginated users for pickers; load more with `fetchNextPage` (e.g. on scroll). */
+export function useUsersInfiniteListQuery(debouncedSearch: string, enabled: boolean) {
+  return useInfiniteQuery({
+    queryKey: usersInfiniteListQueryKey(debouncedSearch),
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) =>
+      listUsers({
+        page: pageParam as number,
+        limit: USERS_INFINITE_PAGE_SIZE,
+        ...(debouncedSearch.trim() ? { search: debouncedSearch.trim() } : {}),
+        orderBy: "id",
+        order: "ASC",
+      }),
+    getNextPageParam: (lastPage) => {
+      const links = lastPage.links;
+      if (!links?.total) return undefined;
+      if (links.current >= links.total) return undefined;
+      return links.current + 1;
+    },
+    enabled,
   });
 }
 

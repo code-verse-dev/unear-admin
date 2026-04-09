@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
+  deleteDisputeRequest,
   disputeRequestDetailQueryKey,
   disputeRequestsListQueryKey,
   disputeRequestsQueryKeyRoot,
@@ -31,6 +32,16 @@ export function useUpdateDisputeRequestMutation() {
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: UpdateDisputeRequestBody }) =>
       updateDisputeRequest(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: disputeRequestsQueryKeyRoot });
+    },
+  });
+}
+
+export function useDeleteDisputeRequestMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteDisputeRequest(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: disputeRequestsQueryKeyRoot });
     },
