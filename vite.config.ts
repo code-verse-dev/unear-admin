@@ -11,7 +11,7 @@ export default defineConfig({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react()],
   base:"/unear/admin/",
   resolve: {
     alias: {
