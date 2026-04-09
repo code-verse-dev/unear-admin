@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import {
+  deleteInspectionRequest,
   getInspectionRequest,
   inspectionRequestDetailQueryKey,
   inspectionRequestsListQueryKey,
@@ -31,6 +32,16 @@ export function useUpdateInspectionRequestMutation() {
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: UpdateInspectionRequestBody }) =>
       updateInspectionRequest(id, body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: inspectionRequestsQueryKeyRoot });
+    },
+  });
+}
+
+export function useDeleteInspectionRequestMutation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => deleteInspectionRequest(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: inspectionRequestsQueryKeyRoot });
     },

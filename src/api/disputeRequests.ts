@@ -101,6 +101,13 @@ export async function updateDisputeRequest(
   return json.data;
 }
 
+export async function deleteDisputeRequest(id: number): Promise<void> {
+  await adminFetch<ApiSuccess<unknown>>(`/api/admin/dispute-request/${id}`, {
+    method: "DELETE",
+    auth: true,
+  });
+}
+
 export const disputeRequestsQueryKeyRoot = ["admin", "dispute-requests"] as const;
 
 export function disputeRequestsListQueryKey(params: DisputeRequestsListParams) {

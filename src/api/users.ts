@@ -174,10 +174,17 @@ export async function toggleUserVerification(id: number): Promise<void> {
   });
 }
 
+/** Page size for infinite-scroll pickers (push notifications, etc.). */
+export const USERS_INFINITE_PAGE_SIZE = 25;
+
 export const usersQueryKeyRoot = ["admin", "users"] as const;
 
 export function usersListQueryKey(params: UsersListParams) {
   return [...usersQueryKeyRoot, "list", params] as const;
+}
+
+export function usersInfiniteListQueryKey(debouncedSearch: string) {
+  return [...usersQueryKeyRoot, "infinite", debouncedSearch] as const;
 }
 
 export function userDetailQueryKey(id: number) {

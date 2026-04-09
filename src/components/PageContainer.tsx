@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
 interface PageContainerProps {
   title: string;
@@ -12,14 +13,17 @@ interface PageContainerProps {
 const PageContainer = ({ title, subtitle, actions, children, fullWidth = false }: PageContainerProps) => {
   return (
     <div
-      className={`p-6 w-full min-w-0 ${fullWidth ? "max-w-none" : "max-w-[1400px] mx-auto"}`}
+      className={cn(
+        "w-full min-w-0 px-4 py-5 sm:p-6",
+        fullWidth ? "max-w-none" : "mx-auto max-w-[1400px]"
+      )}
     >
-      <div className="page-header flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="page-title">{title}</h1>
+      <div className="page-header flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="page-title break-words">{title}</h1>
           {subtitle && <p className="page-subtitle">{subtitle}</p>}
         </div>
-        {actions && <div className="flex gap-2">{actions}</div>}
+        {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
       </div>
       {children}
     </div>
