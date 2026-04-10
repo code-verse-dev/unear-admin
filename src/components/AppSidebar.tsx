@@ -10,7 +10,6 @@ import {
   LayoutTemplate,
   BellRing,
   Settings2,
-  CircleUser,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -40,7 +39,6 @@ const navItems = [
   { title: "FAQs", url: "/faqs", icon: BookOpen },
   { title: "Pages", url: "/pages", icon: LayoutTemplate },
   { title: "Push Notifications", url: "/push-notifications", icon: BellRing },
-  { title: "Profile", url: "/profile", icon: CircleUser },
   { title: "Settings", url: "/settings", icon: Settings2 },
 ];
 

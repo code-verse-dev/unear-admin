@@ -55,16 +55,39 @@ const typeStyles: Record<
 interface ActivityFeedProps {
   activities: ActivityItem[];
   emptyMessage?: string;
+  /**
+   * When false, omit outer `admin-card` shell (e.g. when the parent already wraps this in a card).
+   * @default true
+   */
+  asCard?: boolean;
+  /**
+   * Fill parent height (e.g. dashboard column beside charts). Drops viewport max-height caps so the list scrolls inside the card.
+   * @default false
+   */
+  stretchColumn?: boolean;
 }
 
-const ActivityFeed = ({ activities, emptyMessage = "No recent activity yet." }: ActivityFeedProps) => {
+const ActivityFeed = ({
+  activities,
+  emptyMessage = "No recent activity yet.",
+  asCard = true,
+  stretchColumn = false,
+}: ActivityFeedProps) => {
   return (
     <div
       className={cn(
-        "admin-card flex min-h-[220px] flex-col overflow-hidden",
-        /* Capped height so the list region gets a definite flex basis and overflow-y-auto works (esp. xl grid). */
-        "max-h-[min(72vh,640px)] xl:max-h-[min(calc(100dvh-10rem),56rem)]",
-        "w-full bg-gradient-to-b from-card via-card to-muted/25 dark:to-muted/10"
+        "flex flex-col overflow-hidden",
+        stretchColumn
+          ? "h-full min-h-0 max-h-none"
+          : [
+              "min-h-[220px]",
+              /* Capped height so the list region gets a definite flex basis and overflow-y-auto works (esp. xl grid). */
+              "max-h-[min(72vh,640px)] xl:max-h-[min(calc(100dvh-10rem),56rem)]",
+            ],
+        "w-full",
+        asCard && [
+          "admin-card bg-gradient-to-b from-card via-card to-muted/25 dark:to-muted/10",
+        ]
       )}
     >
       <div className="flex shrink-0 items-center gap-3 border-b border-border/60 pb-4">
@@ -98,12 +121,7 @@ const ActivityFeed = ({ activities, emptyMessage = "No recent activity yet." }: 
             const isLast = index === activities.length - 1;
 
             const inner = (
-              <div
-                className={cn(
-                  "group relative flex gap-4 rounded-2xl border border-transparent px-1 py-4 transition-colors",
-                  "hover:border-border/80 hover:bg-background/80 dark:hover:bg-background/40"
-                )}
-              >
+              <div className="relative flex gap-4 rounded-2xl px-1 py-4">
                 <div className="relative flex flex-col items-center">
                   <div
                     className={cn(

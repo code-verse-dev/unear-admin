@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Users,
   Car,
@@ -30,7 +30,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminDashboardQuery } from "@/hooks/useAdminDashboard";
 import type { DashboardActivityItem } from "@/api/adminDashboard";
 import { getRollingMonthKeys, seriesForMonths } from "@/lib/dashboardSeries";
-import { cn } from "@/lib/utils";
 
 const MONTHS = 12;
 
@@ -111,9 +110,36 @@ function DashboardSkeleton() {
   );
 }
 
+const XL_MIN_PX = 1280;
+
 const Dashboard = () => {
   const { toast } = useToast();
   const { data, isLoading, isError, error, refetch, isFetching } = useAdminDashboardQuery();
+  const chartsBlockRef = useRef<HTMLDivElement>(null);
+  /** On xl, match Recent activity column height to the charts block (list scrolls inside). */
+  const [activityColumnPx, setActivityColumnPx] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const el = chartsBlockRef.current;
+    if (!el) return;
+
+    const sync = () => {
+      if (typeof window === "undefined" || window.innerWidth < XL_MIN_PX) {
+        setActivityColumnPx(null);
+        return;
+      }
+      setActivityColumnPx(el.offsetHeight);
+    };
+
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    window.addEventListener("resize", sync);
+    sync();
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", sync);
+    };
+  }, [data?.dashboardStats, data?.dashboardGraphData]);
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -238,74 +264,89 @@ const Dashboard = () => {
           </section>
 
           <div className="grid min-h-0 grid-cols-1 items-stretch gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] xl:items-stretch">
-            <div className="min-h-0 min-w-0 space-y-6">
-              <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
-                <p className="mb-4 text-sm font-medium text-card-foreground">Bookings vs completed trips</p>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mergedTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-                    <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
-                    <Tooltip {...chartTooltipProps} />
-                    <Legend wrapperStyle={{ fontSize: "12px" }} />
-                    <Line
-                      type="monotone"
-                      dataKey="bookings"
-                      name="Bookings created"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completed"
-                      name="Completed trips"
-                      stroke="hsl(var(--secondary))"
-                      strokeWidth={2}
-                      dot={{ r: 3 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="min-h-0 w-full min-w-0 self-start">
+              <div ref={chartsBlockRef} className="space-y-6">
                 <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
-                  <p className="mb-4 text-sm font-medium text-card-foreground">Purchase closings</p>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={chartPurchases} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <p className="mb-4 text-sm font-medium text-card-foreground">Bookings vs completed trips</p>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={mergedTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
                       <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
                       <Tooltip {...chartTooltipProps} />
-                      <Bar dataKey="value" name="Purchases" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
-                  <p className="mb-4 text-sm font-medium text-card-foreground">New signups</p>
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={chartUsers} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
-                      <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
-                      <Tooltip {...chartTooltipProps} />
+                      <Legend wrapperStyle={{ fontSize: "12px" }} />
                       <Line
                         type="monotone"
-                        dataKey="value"
-                        name="Users"
+                        dataKey="bookings"
+                        name="Bookings created"
                         stroke="hsl(var(--primary))"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="completed"
+                        name="Completed trips"
+                        stroke="hsl(var(--secondary))"
                         strokeWidth={2}
                         dot={{ r: 3 }}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                    <p className="mb-4 text-sm font-medium text-card-foreground">Purchase closings</p>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={chartPurchases} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
+                        <Tooltip {...chartTooltipProps} />
+                        <Bar dataKey="value" name="Purchases" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="admin-card bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                    <p className="mb-4 text-sm font-medium text-card-foreground">New signups</p>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <LineChart data={chartUsers} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="label" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} />
+                        <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} allowDecimals={false} />
+                        <Tooltip {...chartTooltipProps} />
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          name="Users"
+                          stroke="hsl(var(--primary))"
+                          strokeWidth={2}
+                          dot={{ r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-col overflow-hidden xl:h-full xl:min-h-0">
-              <ActivityFeed activities={activities} />
+            <div
+              className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden self-start xl:min-h-0"
+              style={
+                activityColumnPx != null
+                  ? {
+                      height: activityColumnPx,
+                      maxHeight: activityColumnPx,
+                      minHeight: 0,
+                    }
+                  : undefined
+              }
+            >
+              <div className="admin-card flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-gradient-to-br from-card via-card to-muted/15 dark:to-muted/5">
+                <ActivityFeed activities={activities} asCard={false} stretchColumn />
+              </div>
             </div>
           </div>
         </div>
