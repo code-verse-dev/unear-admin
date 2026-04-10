@@ -179,10 +179,10 @@ const Login = () => {
           <div className="mb-8">
             <p className="text-[13px] font-semibold text-secondary tracking-wide mb-1">ADMIN PANEL</p>
             <h1 className="text-[26px] font-extrabold text-foreground tracking-tight font-display leading-tight">
-              Welcome back 👋
+              Welcome back
             </h1>
             <p className="text-[14px] text-muted-foreground mt-2">
-              Sign in to manage your platform
+              Login to your Admin account
             </p>
           </div>
 
