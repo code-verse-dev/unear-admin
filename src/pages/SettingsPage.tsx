@@ -282,7 +282,14 @@ const SettingsPage = () => {
   };
 
   const onSave = () => {
-    if (!data?.id) return;
+    if (!data?.id) {
+      toast({
+        title: "Save failed",
+        description: "Settings record has no id. Refresh the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
     patchMut.mutate(
       { id: data.id, body: buildPayload(form, data) },
       {
