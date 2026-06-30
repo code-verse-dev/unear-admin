@@ -177,15 +177,18 @@ const ClaimsPage = () => {
 
   const displayClaim = detailQuery.data ?? selected;
 
+  const savedAdminNotes = (selected?.admin_notes ?? detailQuery.data?.admin_notes ?? "").trim();
+
   const saveNotes = async () => {
     if (!selected) return;
     try {
-      await updateMut.mutateAsync({
+      const updated = await updateMut.mutateAsync({
         id: selected.id,
         body: { admin_notes: notesDraft.trim() || null },
       });
+      setSelected((prev) => (prev?.id === updated.id ? { ...prev, admin_notes: updated.admin_notes } : prev));
+      setNotesDraft(updated.admin_notes || "");
       toast({ title: "Notes saved" });
-      detailQuery.refetch();
     } catch (e) {
       toast({
         title: "Save failed",
@@ -555,16 +558,28 @@ const ClaimsPage = () => {
                     </div>
                   ) : null}
 
-                  <div>
-                    <Label htmlFor="admin-notes">Admin notes</Label>
-                    <Textarea
-                      id="admin-notes"
-                      value={notesDraft}
-                      onChange={(e) => setNotesDraft(e.target.value)}
-                      rows={3}
-                      className="mt-1.5"
-                      placeholder="Internal notes (optional)"
-                    />
+                  <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Saved admin notes</p>
+                      {savedAdminNotes ? (
+                        <div className="mt-2 min-h-[4.5rem] rounded-md border border-border/80 bg-background px-3 py-2.5 text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                          {savedAdminNotes}
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-sm italic text-muted-foreground">No admin notes saved yet.</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label htmlFor="admin-notes">Add or update notes</Label>
+                      <Textarea
+                        id="admin-notes"
+                        value={notesDraft}
+                        onChange={(e) => setNotesDraft(e.target.value)}
+                        rows={4}
+                        className="mt-1.5 bg-background"
+                        placeholder="Internal notes visible to admins only…"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

@@ -4,7 +4,7 @@ import SearchFilter from "@/components/SearchFilter";
 import DataTable, { Column } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Loader2, Download } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -13,6 +13,8 @@ import {
   type TransactionsListParams,
 } from "@/api/transactions";
 import { useTransactionDetailQuery, useTransactionsListQuery } from "@/hooks/useAdminTransactions";
+import { exportTransactionsExcel, transactionReferenceNumber } from "@/lib/exportTransactions";
+import { REFERENCE_PAD_OPTIONS, type ReferencePadDigits } from "@/lib/transactionReference";
 import { cn } from "@/lib/utils";
 
 const formatDateUS = (iso: string | undefined) => {
@@ -65,11 +67,6 @@ function txnStatusVariant(
   return "secondary";
 }
 
-function truncateId(id: string, max = 14) {
-  if (!id || id.length <= max) return id || "—";
-  return `${id.slice(0, max)}…`;
-}
-
 const actionIconButtonClass =
   "h-8 w-8 text-muted-foreground hover:bg-primary hover:text-white transition-colors";
 
@@ -78,6 +75,8 @@ const TransactionsPage = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [referencePadFilter, setReferencePadFilter] = useState<ReferencePadDigits>("8");
+  const [exporting, setExporting] = useState(false);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<AdminTransaction | null>(null);
@@ -91,7 +90,7 @@ const TransactionsPage = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, referencePadFilter]);
 
   const listParams: TransactionsListParams = useMemo(() => {
     const p: TransactionsListParams = {
@@ -99,11 +98,12 @@ const TransactionsPage = () => {
       limit: TRANSACTIONS_PAGE_SIZE_DEFAULT,
       orderBy: "id",
       order: "DESC",
+      reference_pad: referencePadFilter,
     };
     if (debouncedSearch) p.search = debouncedSearch;
     if (statusFilter !== "all") p.status = statusFilter;
     return p;
-  }, [page, debouncedSearch, statusFilter]);
+  }, [page, debouncedSearch, statusFilter, referencePadFilter]);
 
   const { data, isLoading, isFetching, isError, error, refetch } = useTransactionsListQuery(listParams);
 
@@ -131,18 +131,38 @@ const TransactionsPage = () => {
 
   const displayTxn = detailQuery.data ?? selected;
 
+  const onExportExcel = async () => {
+    setExporting(true);
+    try {
+      const count = await exportTransactionsExcel({
+        orderBy: listParams.orderBy,
+        order: listParams.order,
+        search: listParams.search,
+        status: listParams.status,
+        reference_pad: listParams.reference_pad,
+      });
+      toast({
+        title: "Export ready",
+        description: `${count} transaction${count === 1 ? "" : "s"} exported (CSV opens in Excel).`,
+      });
+    } catch (e) {
+      toast({
+        title: "Export failed",
+        description: e instanceof Error ? e.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const columns: Column<AdminTransaction>[] = [
     {
-      key: "id",
-      header: "ID",
-      render: (row) => <span className="font-mono text-xs">{row.id}</span>,
-    },
-    {
-      key: "gateway_transaction_id",
-      header: "Gateway ID",
+      key: "reference_number",
+      header: "Reference No.",
       render: (row) => (
-        <span className="font-mono text-xs text-muted-foreground" title={row.gateway_transaction_id}>
-          {truncateId(row.gateway_transaction_id, 16)}
+        <span className="font-mono text-xs font-medium" title={transactionReferenceNumber(row, referencePadFilter)}>
+          {transactionReferenceNumber(row, referencePadFilter)}
         </span>
       ),
     },
@@ -205,13 +225,20 @@ const TransactionsPage = () => {
           : "Financial transaction history"
       }
     >
-      <div className="mb-4">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
         <SearchFilter
-          searchPlaceholder="Search by id, gateway id, description, or user name…"
+          searchPlaceholder="Reference (with or without zeros), user, description…"
           searchValue={searchInput}
           onSearchChange={setSearchInput}
           isSearching={isFetching}
           filters={[
+            {
+              label: "Reference format",
+              value: referencePadFilter,
+              onChange: (v) => setReferencePadFilter(v as ReferencePadDigits),
+              options: REFERENCE_PAD_OPTIONS,
+            },
             {
               label: "Status",
               value: statusFilter,
@@ -229,6 +256,7 @@ const TransactionsPage = () => {
             setSearchInput("");
             setDebouncedSearch("");
             setStatusFilter("all");
+            setReferencePadFilter("8");
             setPage(1);
           }}
         />
@@ -239,6 +267,17 @@ const TransactionsPage = () => {
             </Button>
           </div>
         ) : null}
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="shrink-0 gap-2"
+          disabled={exporting || isLoading}
+          onClick={() => void onExportExcel()}
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Download className="h-4 w-4" aria-hidden />}
+          Export Excel
+        </Button>
       </div>
       <div className="relative w-full min-w-0 overflow-hidden rounded-xl border border-border bg-card">
         <DataTable
@@ -279,8 +318,10 @@ const TransactionsPage = () => {
               <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14 sm:pt-6">
                 <div className="mb-4 flex items-start justify-between gap-2 pr-2">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Transaction #{displayTxn.id}</h2>
-                    <p className="text-sm text-muted-foreground">Payment record details</p>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {transactionReferenceNumber(displayTxn, referencePadFilter)}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">Payment record · Record ID #{displayTxn.id}</p>
                   </div>
                   {detailQuery.isFetching ? (
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
@@ -315,8 +356,10 @@ const TransactionsPage = () => {
                       </div>
                     </div>
                     <div className="sm:col-span-2">
-                      <span className="text-xs text-muted-foreground">Gateway ID</span>
-                      <div className="break-all font-mono text-xs">{displayTxn.gateway_transaction_id}</div>
+                      <span className="text-xs text-muted-foreground">Reference number</span>
+                      <div className="font-mono text-sm font-medium">
+                        {transactionReferenceNumber(displayTxn, referencePadFilter)}
+                      </div>
                     </div>
                     <div>
                       <span className="text-xs text-muted-foreground">User type</span>

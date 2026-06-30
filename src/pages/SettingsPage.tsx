@@ -110,7 +110,7 @@ function num(s: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function buildPayload(form: FormState, persisted: AdminSetting) {
+function buildPayload(form: FormState, persisted: AdminSetting, usesStructuredFees: boolean) {
   return {
     title: (persisted.title ?? "").trim() || "UNear",
     tax: num(form.tax),
@@ -129,12 +129,21 @@ function buildPayload(form: FormState, persisted: AdminSetting) {
     inspection_charges_unit: form.inspection_charges_unit,
     app_store_url: persisted.app_store_url,
     play_store_url: persisted.play_store_url,
-    marketplace_fee_percent: pctOrNull(form.marketplace_fee_percent),
+    marketplace_fee_percent: usesStructuredFees ? pctOrNull(form.marketplace_fee_percent) : null,
     marketplace_fee_unit: form.marketplace_fee_unit,
-    administration_fee_percent: pctOrNull(form.administration_fee_percent),
+    administration_fee_percent: usesStructuredFees ? pctOrNull(form.administration_fee_percent) : null,
     administration_fee_unit: form.administration_fee_unit,
-    platform_fee_percent: pctOrNull(form.platform_fee_percent),
+    platform_fee_percent: usesStructuredFees ? pctOrNull(form.platform_fee_percent) : null,
     platform_fee_percent_unit: form.platform_fee_percent_unit,
+  };
+}
+
+function clearStructuredFees(prev: FormState): FormState {
+  return {
+    ...prev,
+    marketplace_fee_percent: "",
+    administration_fee_percent: "",
+    platform_fee_percent: "",
   };
 }
 
@@ -278,7 +287,15 @@ const SettingsPage = () => {
   }, [isError, error, toast]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      const isSimplePlatformField =
+        key === "platform_fee" ||
+        key === "platform_fee_unit" ||
+        key === "platform_commission" ||
+        key === "platform_commission_unit";
+      return isSimplePlatformField ? clearStructuredFees(next) : next;
+    });
   };
 
   const onSave = () => {
@@ -291,7 +308,7 @@ const SettingsPage = () => {
       return;
     }
     patchMut.mutate(
-      { id: data.id, body: buildPayload(form, data) },
+      { id: data.id, body: buildPayload(form, data, usesStructuredFees) },
       {
         onSuccess: () => toast({ title: "Saved" }),
         onError: (e) =>
@@ -330,14 +347,20 @@ const SettingsPage = () => {
   return (
     <PageContainer fullWidth title="Settings">
       <div className="w-full min-w-0 space-y-6">
-        <SettingsCard title="Booking & purchase platform">
+        <SettingsCard
+          title="Booking & purchase platform"
+          hint={
+            usesStructuredFees
+              ? "The advanced 3-line split is active for new bookings. Change platform fee or commission below to switch back to the simple model, or adjust all three advanced fields."
+              : "Platform fee and commission apply to new bookings and purchases. Use % or $ per field."
+          }
+        >
           <FeeField
             label="Platform fee"
             value={form.platform_fee}
             unit={form.platform_fee_unit}
             onValue={(v) => update("platform_fee", v)}
             onUnit={(u) => update("platform_fee_unit", u)}
-            disabled={usesStructuredFees}
           />
           <FeeField
             label="Commission"
@@ -345,7 +368,6 @@ const SettingsPage = () => {
             unit={form.platform_commission_unit}
             onValue={(v) => update("platform_commission", v)}
             onUnit={(u) => update("platform_commission_unit", u)}
-            disabled={usesStructuredFees}
           />
 
           <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>

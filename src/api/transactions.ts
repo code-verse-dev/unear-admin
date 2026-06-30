@@ -16,7 +16,7 @@ export type AdminTransaction = {
   user_type: string;
   instance_type: number;
   instance_id: number;
-  gateway_transaction_id: string;
+  reference_number: string;
   transaction_type: number;
   transaction_amount: number;
   status: string;
@@ -33,6 +33,8 @@ export type TransactionIndexPayload = {
   data: AdminTransaction[];
 };
 
+import type { ReferencePadDigits } from "@/lib/transactionReference";
+
 export type TransactionsListParams = {
   page: number;
   limit?: number;
@@ -40,9 +42,10 @@ export type TransactionsListParams = {
   user_type?: string;
   instance_type?: number;
   transaction_id?: number;
-  gateway_transaction_id?: string;
-  /** Admin: matches id, gateway id, description, user name */
+  /** Admin: matches reference number (with/without leading zeros), id, description, user name */
   search?: string;
+  /** Admin: 6 | 7 | 8 | auto — reference serial padding when searching numeric refs */
+  reference_pad?: ReferencePadDigits;
   /** Admin: case-insensitive status match (e.g. succeeded, pending) */
   status?: string;
   orderBy?: string;
@@ -59,10 +62,8 @@ function buildTransactionsQuery(params: TransactionsListParams): string {
   if (params.user_type?.trim()) sp.set("user_type", params.user_type.trim());
   if (params.instance_type != null) sp.set("instance_type", String(params.instance_type));
   if (params.transaction_id != null) sp.set("transaction_id", String(params.transaction_id));
-  if (params.gateway_transaction_id?.trim()) {
-    sp.set("gateway_transaction_id", params.gateway_transaction_id.trim());
-  }
   if (params.search?.trim()) sp.set("search", params.search.trim());
+  if (params.reference_pad?.trim()) sp.set("reference_pad", params.reference_pad.trim());
   if (params.status?.trim()) sp.set("status", params.status.trim());
   const q = sp.toString();
   return q ? `?${q}` : "";
