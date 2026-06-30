@@ -59,7 +59,7 @@ const SearchFilter = ({
       </div>
       {filters.map((filter) => (
         <Select key={filter.label} value={filter.value} onValueChange={filter.onChange}>
-          <SelectTrigger className="w-[160px] bg-card border-border">
+          <SelectTrigger className="w-[min(100%,200px)] bg-card border-border">
             <SelectValue placeholder={filter.label} />
           </SelectTrigger>
           <SelectContent>

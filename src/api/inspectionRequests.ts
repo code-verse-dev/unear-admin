@@ -88,6 +88,7 @@ export async function getInspectionRequest(id: number): Promise<AdminInspectionR
 
 export type UpdateInspectionRequestBody = {
   status?: number;
+  report_url?: string | null;
 };
 
 export async function updateInspectionRequest(

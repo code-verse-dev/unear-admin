@@ -4,19 +4,10 @@ import SearchFilter from "@/components/SearchFilter";
 import DataTable, { Column } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Eye, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { Eye, ExternalLink, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -34,7 +25,6 @@ import {
   type InspectionRequestsListParams,
 } from "@/api/inspectionRequests";
 import {
-  useDeleteInspectionRequestMutation,
   useInspectionRequestDetailQuery,
   useInspectionRequestsListQuery,
   useUpdateInspectionRequestMutation,
@@ -88,12 +78,12 @@ const InspectionsPage = () => {
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>(String(INSPECTION_REQUEST_STATUS.REQUESTED));
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<AdminInspectionRequest | null>(null);
   const [statusDraft, setStatusDraft] = useState<string>("");
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reportUrlDraft, setReportUrlDraft] = useState("");
 
   const { toast } = useToast();
 
@@ -123,7 +113,6 @@ const InspectionsPage = () => {
 
   const { data, isLoading, isFetching, isError, error, refetch } = useInspectionRequestsListQuery(listParams);
   const updateMut = useUpdateInspectionRequestMutation();
-  const deleteMut = useDeleteInspectionRequestMutation();
 
   const detailId = sheetOpen && selected ? selected.id : 0;
   const detailQuery = useInspectionRequestDetailQuery(detailId, sheetOpen);
@@ -141,6 +130,7 @@ const InspectionsPage = () => {
   useEffect(() => {
     if (sheetOpen && detailQuery.data) {
       setStatusDraft(String(detailQuery.data.status));
+      setReportUrlDraft(detailQuery.data.report_url || "");
     }
   }, [sheetOpen, detailQuery.data]);
 
@@ -151,42 +141,47 @@ const InspectionsPage = () => {
   const openSheet = (row: AdminInspectionRequest) => {
     setSelected(row);
     setStatusDraft(String(row.status));
+    setReportUrlDraft(row.report_url || "");
     setSheetOpen(true);
   };
 
   const displayRow = detailQuery.data ?? selected;
 
-  const confirmDeleteInspection = async () => {
-    if (!displayRow) return;
-    const id = displayRow.id;
-    try {
-      await deleteMut.mutateAsync(id);
-      setDeleteDialogOpen(false);
-      setSheetOpen(false);
-      setSelected(null);
-      toast({ title: "Inspection request deleted", description: `Request #${id} was removed.` });
-    } catch (e) {
-      toast({
-        title: "Delete failed",
-        description: e instanceof Error ? e.message : "Unknown error",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const saveStatus = async () => {
+  const saveReview = async () => {
     if (!displayRow) return;
     const next = parseInt(statusDraft, 10);
     if (Number.isNaN(next)) return;
-    if (next === displayRow.status) {
-      toast({ title: "No changes", description: "Status is already set to this value." });
+
+    const nextReport = reportUrlDraft.trim() || null;
+    const statusChanged = next !== displayRow.status;
+    const reportChanged = nextReport !== (displayRow.report_url?.trim() || null);
+
+    if (!statusChanged && !reportChanged) {
+      toast({ title: "No changes", description: "Update the status or report URL before saving." });
       return;
     }
+
+    if (next === INSPECTION_REQUEST_STATUS.COMPLETED && !displayRow.vehicle_id && !nextReport) {
+      toast({
+        title: "Cannot complete",
+        description: "This host request has no linked vehicle. Add a report URL or ensure the host selected a vehicle.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const updated = await updateMut.mutateAsync({ id: displayRow.id, body: { status: next } });
+      const updated = await updateMut.mutateAsync({
+        id: displayRow.id,
+        body: {
+          status: next,
+          report_url: nextReport,
+        },
+      });
       setSelected(updated);
-      toast({ title: "Inspection updated", description: `Request #${updated.id}` });
-      await detailQuery.refetch();
+      setStatusDraft(String(updated.status));
+      setReportUrlDraft(updated.report_url || "");
+      toast({ title: "Review saved", description: `Host inspection request #${updated.id} updated.` });
     } catch (e) {
       toast({
         title: "Update failed",
@@ -213,7 +208,7 @@ const InspectionsPage = () => {
     },
     {
       key: "user",
-      header: "User",
+      header: "Host",
       render: (row) => <span className="text-sm text-muted-foreground">{accountUserLabel(row)}</span>,
     },
     { key: "car_type", header: "Type", render: (row) => <span className="text-sm">{row.car_type}</span> },
@@ -255,7 +250,11 @@ const InspectionsPage = () => {
   const availabilityLines = displayRow ? inspectionAvailabilityLines(displayRow.availability) : [];
 
   return (
-    <PageContainer fullWidth title="Inspection Requests" subtitle="Review vehicle inspection requests and status">
+    <PageContainer
+      fullWidth
+      title="Inspection Requests"
+      subtitle="Review platform inspection requests submitted by hosts. Admins cannot create requests here — hosts submit them from the app."
+    >
       <div className="mb-4">
         <SearchFilter
           searchPlaceholder="Search by id, vehicle, model, color, type, payment id, horsepower, or user name…"
@@ -311,10 +310,7 @@ const InspectionsPage = () => {
         open={sheetOpen}
         onOpenChange={(open) => {
           setSheetOpen(open);
-          if (!open) {
-            setSelected(null);
-            setDeleteDialogOpen(false);
-          }
+          if (!open) setSelected(null);
         }}
       >
         <SheetContent
@@ -335,7 +331,7 @@ const InspectionsPage = () => {
                 <div className="mb-4 flex items-start justify-between gap-2 pr-2">
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Inspection #{displayRow.id}</h2>
-                    <p className="text-sm text-muted-foreground">Vehicle inspection request</p>
+                    <p className="text-sm text-muted-foreground">Host-submitted platform inspection request</p>
                   </div>
                   {detailQuery.isFetching ? (
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
@@ -345,9 +341,9 @@ const InspectionsPage = () => {
                 <div className="space-y-4 text-sm">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <span className="text-xs text-muted-foreground">Account user</span>
+                      <span className="text-xs text-muted-foreground">Submitted by host</span>
                       <div className="font-medium leading-tight">{accountUserLabel(displayRow)}</div>
-                      <p className="text-xs text-muted-foreground">User #{displayRow.user_id}</p>
+                      <p className="text-xs text-muted-foreground">Host user #{displayRow.user_id}</p>
                     </div>
                     <div>
                       <span className="text-xs text-muted-foreground">Vehicle ID</span>
@@ -430,46 +426,75 @@ const InspectionsPage = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-border bg-muted/30 p-4">
-                    <Label htmlFor="inspection-status" className="text-xs text-muted-foreground">
-                      Update status
-                    </Label>
-                    <Select value={statusDraft} onValueChange={setStatusDraft}>
-                      <SelectTrigger id="inspection-status" className="mt-2 w-full sm:max-w-xs">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={String(INSPECTION_REQUEST_STATUS.UNPAID)}>Unpaid</SelectItem>
-                        <SelectItem value={String(INSPECTION_REQUEST_STATUS.REQUESTED)}>Requested</SelectItem>
-                        <SelectItem value={String(INSPECTION_REQUEST_STATUS.COMPLETED)}>Completed</SelectItem>
-                        <SelectItem value={String(INSPECTION_REQUEST_STATUS.CANCELLED)}>Cancelled</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground">Admin review</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Update the review status after processing this host request. Mark as completed once the
+                        platform inspection is done.
+                      </p>
+                    </div>
+                    <div>
+                      <Label htmlFor="inspection-status" className="text-xs text-muted-foreground">
+                        Review status
+                      </Label>
+                      <Select value={statusDraft} onValueChange={setStatusDraft}>
+                        <SelectTrigger id="inspection-status" className="mt-2 w-full sm:max-w-xs">
+                          <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {displayRow.status === INSPECTION_REQUEST_STATUS.UNPAID ? (
+                            <SelectItem value={String(INSPECTION_REQUEST_STATUS.UNPAID)} disabled>
+                              Unpaid — host payment pending
+                            </SelectItem>
+                          ) : null}
+                          <SelectItem value={String(INSPECTION_REQUEST_STATUS.REQUESTED)}>Requested — awaiting review</SelectItem>
+                          <SelectItem value={String(INSPECTION_REQUEST_STATUS.COMPLETED)}>Completed — inspection done</SelectItem>
+                          <SelectItem value={String(INSPECTION_REQUEST_STATUS.CANCELLED)}>Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {displayRow.status === INSPECTION_REQUEST_STATUS.UNPAID ? (
+                        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                          Payment is still pending on the host side. Review once payment clears and status becomes
+                          requested.
+                        </p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <Label htmlFor="inspection-report-url" className="text-xs text-muted-foreground">
+                        Inspection report URL
+                      </Label>
+                      <Input
+                        id="inspection-report-url"
+                        value={reportUrlDraft}
+                        onChange={(e) => setReportUrlDraft(e.target.value)}
+                        placeholder="Paste report file path or URL after inspection"
+                        className="mt-2 bg-background"
+                      />
+                      {reportHref ? (
+                        <a
+                          href={reportHref}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                        >
+                          View saved report <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+                        </a>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
-              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:items-center sm:justify-between">
-                <Button
-                  type="button"
-                  variant="destructive"
-                  className="sm:mr-auto"
-                  disabled={deleteMut.isPending}
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" aria-hidden />
-                  Delete
+              <SheetFooter className="flex-col gap-2 border-t border-border bg-background p-4 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
+                  Close
                 </Button>
-                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" onClick={() => setSheetOpen(false)}>
-                    Close
-                  </Button>
-                  <Button type="button" disabled={updateMut.isPending} onClick={() => void saveStatus()}>
-                    {updateMut.isPending ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                    ) : null}
-                    Save status
-                  </Button>
-                </div>
+                <Button type="button" disabled={updateMut.isPending} onClick={() => void saveReview()}>
+                  {updateMut.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
+                  ) : null}
+                  Save review
+                </Button>
               </SheetFooter>
             </>
           ) : detailQuery.isLoading ? (
@@ -479,35 +504,6 @@ const InspectionsPage = () => {
           ) : null}
         </SheetContent>
       </Sheet>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete inspection request?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove inspection #{displayRow?.id} from the list. The record is soft-deleted and will no
-              longer appear here.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMut.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={deleteMut.isPending}
-              onClick={(e) => {
-                e.preventDefault();
-                void confirmDeleteInspection();
-              }}
-            >
-              {deleteMut.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-              ) : (
-                "Delete"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </PageContainer>
   );
 };

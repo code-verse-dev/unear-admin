@@ -66,7 +66,8 @@ export function useUpdateExpenseClaimMutation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: UpdateExpenseClaimBody }) => updateExpenseClaim(id, body),
-    onSuccess: () => {
+    onSuccess: (data, { id }) => {
+      qc.setQueryData(expenseClaimDetailQueryKey(id), data);
       qc.invalidateQueries({ queryKey: expenseClaimsQueryKeyRoot });
     },
   });

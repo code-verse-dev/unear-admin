@@ -32,7 +32,8 @@ export function useUpdateInspectionRequestMutation() {
   return useMutation({
     mutationFn: ({ id, body }: { id: number; body: UpdateInspectionRequestBody }) =>
       updateInspectionRequest(id, body),
-    onSuccess: () => {
+    onSuccess: (data, { id }) => {
+      qc.setQueryData(inspectionRequestDetailQueryKey(id), data);
       qc.invalidateQueries({ queryKey: inspectionRequestsQueryKeyRoot });
     },
   });
