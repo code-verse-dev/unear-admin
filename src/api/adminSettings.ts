@@ -2,11 +2,6 @@ import { adminFetch, type ApiSuccess } from "@/lib/admin-api";
 
 export type FeeUnit = "percent" | "fixed";
 
-export type DurationDiscountTier = {
-  duration: number;
-  discount: number;
-};
-
 export type AdminSetting = {
   id: number;
   title: string;
@@ -23,7 +18,6 @@ export type AdminSetting = {
   marketplace_fee_percent: number | null;
   administration_fee_percent: number | null;
   platform_fee_percent: number | null;
-  duration_discounts?: DurationDiscountTier[] | null;
   tax_unit?: FeeUnit | string;
   platform_fee_unit?: FeeUnit | string;
   platform_commission_unit?: FeeUnit | string;
@@ -55,7 +49,6 @@ export type AdminSettingUpdate = Partial<
     | "marketplace_fee_percent"
     | "administration_fee_percent"
     | "platform_fee_percent"
-    | "duration_discounts"
     | "tax_unit"
     | "platform_fee_unit"
     | "platform_commission_unit"

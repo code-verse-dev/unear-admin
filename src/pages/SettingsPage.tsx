@@ -10,10 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Save, Loader2, Plus, Trash2 } from "lucide-react";
+import { Save, Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { AdminSetting, DurationDiscountTier, FeeUnit } from "@/api/adminSettings";
+import type { AdminSetting, FeeUnit } from "@/api/adminSettings";
 import { useAdminSettingQuery, usePatchAdminSettingMutation } from "@/hooks/useAdminSettings";
 
 type FormState = {
@@ -32,7 +32,6 @@ type FormState = {
   security_deposit_unit: FeeUnit;
   inspection_charges: string;
   inspection_charges_unit: FeeUnit;
-  duration_discounts: DurationDiscountTier[];
 };
 
 const emptyForm = (): FormState => ({
@@ -51,7 +50,6 @@ const emptyForm = (): FormState => ({
   security_deposit_unit: "fixed",
   inspection_charges: "",
   inspection_charges_unit: "fixed",
-  duration_discounts: [],
 });
 
 function displayNum(n: number | null | undefined): string {
@@ -64,12 +62,6 @@ function asFeeUnit(v: string | undefined, fallback: FeeUnit): FeeUnit {
 }
 
 function settingToForm(s: AdminSetting): FormState {
-  const tiers = Array.isArray(s.duration_discounts)
-    ? s.duration_discounts.map((t) => ({
-        duration: Number(t.duration) || 0,
-        discount: Number(t.discount) || 0,
-      }))
-    : [];
   return {
     fee_label: (s.fee_label ?? "").trim(),
     tax: displayNum(s.tax),
@@ -86,7 +78,6 @@ function settingToForm(s: AdminSetting): FormState {
     security_deposit_unit: asFeeUnit(s.security_deposit_unit as string, "fixed"),
     inspection_charges: displayNum(s.inspection_charges),
     inspection_charges_unit: asFeeUnit(s.inspection_charges_unit as string, "fixed"),
-    duration_discounts: tiers,
   };
 }
 
@@ -96,13 +87,6 @@ function num(s: string, fallback = 0): number {
 }
 
 function buildPayload(form: FormState, persisted: AdminSetting) {
-  const duration_discounts = form.duration_discounts
-    .map((t) => ({
-      duration: Math.max(0, Math.floor(Number(t.duration) || 0)),
-      discount: Math.max(0, Number(t.discount) || 0),
-    }))
-    .filter((t) => t.duration > 0);
-
   return {
     title: (persisted.title ?? "").trim() || "UNear",
     fee_label: form.fee_label.trim() || null,
@@ -120,7 +104,6 @@ function buildPayload(form: FormState, persisted: AdminSetting) {
     security_deposit_unit: form.security_deposit_unit,
     inspection_charges: num(form.inspection_charges),
     inspection_charges_unit: form.inspection_charges_unit,
-    duration_discounts,
     app_store_url: persisted.app_store_url,
     play_store_url: persisted.play_store_url,
     marketplace_fee_percent: null,
@@ -238,28 +221,6 @@ const SettingsPage = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const updateTier = (index: number, key: keyof DurationDiscountTier, value: number) => {
-    setForm((prev) => {
-      const next = [...prev.duration_discounts];
-      next[index] = { ...next[index], [key]: value };
-      return { ...prev, duration_discounts: next };
-    });
-  };
-
-  const addTier = () => {
-    setForm((prev) => ({
-      ...prev,
-      duration_discounts: [...prev.duration_discounts, { duration: 3, discount: 5 }],
-    }));
-  };
-
-  const removeTier = (index: number) => {
-    setForm((prev) => ({
-      ...prev,
-      duration_discounts: prev.duration_discounts.filter((_, i) => i !== index),
-    }));
-  };
-
   const onSave = () => {
     if (!data?.id) {
       toast({
@@ -337,58 +298,6 @@ const SettingsPage = () => {
             onValue={(v) => update("platform_commission", v)}
             onUnit={(u) => update("platform_commission_unit", u)}
           />
-        </SettingsCard>
-
-        <SettingsCard
-          title="Duration discounts"
-          hint="Platform default % off trip rent when the booking is long enough. Used when a vehicle has no host duration discounts. Highest matching min-days tier wins."
-        >
-          {form.duration_discounts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No tiers yet. Add one to offer longer-trip discounts.</p>
-          ) : (
-            <div className="space-y-3">
-              {form.duration_discounts.map((tier, index) => (
-                <div key={index} className="flex flex-wrap items-end gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Min days</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={tier.duration || ""}
-                      onChange={(e) => updateTier(index, "duration", parseInt(e.target.value, 10) || 0)}
-                      className="h-10 w-28 bg-background"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs text-muted-foreground">Discount %</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={tier.discount || ""}
-                      onChange={(e) => updateTier(index, "discount", parseFloat(e.target.value) || 0)}
-                      className="h-10 w-28 bg-background"
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeTier(index)}
-                    aria-label="Remove tier"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-          <Button type="button" variant="secondary" size="sm" className="inline-flex items-center gap-2" onClick={addTier}>
-            <Plus className="h-4 w-4" />
-            Add tier
-          </Button>
         </SettingsCard>
 
         <SettingsCard
