@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import PageContainer from "@/components/PageContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronDown, Save, Loader2 } from "lucide-react";
+import { Save, Loader2, Plus, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import type { AdminSetting, FeeUnit } from "@/api/adminSettings";
+import type { AdminSetting, DurationDiscountTier, FeeUnit } from "@/api/adminSettings";
 import { useAdminSettingQuery, usePatchAdminSettingMutation } from "@/hooks/useAdminSettings";
-import { cn } from "@/lib/utils";
 
 type FormState = {
+  fee_label: string;
   tax: string;
   tax_unit: FeeUnit;
   platform_fee: string;
@@ -33,15 +32,11 @@ type FormState = {
   security_deposit_unit: FeeUnit;
   inspection_charges: string;
   inspection_charges_unit: FeeUnit;
-  marketplace_fee_percent: string;
-  marketplace_fee_unit: FeeUnit;
-  administration_fee_percent: string;
-  administration_fee_unit: FeeUnit;
-  platform_fee_percent: string;
-  platform_fee_percent_unit: FeeUnit;
+  duration_discounts: DurationDiscountTier[];
 };
 
 const emptyForm = (): FormState => ({
+  fee_label: "",
   tax: "",
   tax_unit: "percent",
   platform_fee: "",
@@ -56,12 +51,7 @@ const emptyForm = (): FormState => ({
   security_deposit_unit: "fixed",
   inspection_charges: "",
   inspection_charges_unit: "fixed",
-  marketplace_fee_percent: "",
-  marketplace_fee_unit: "percent",
-  administration_fee_percent: "",
-  administration_fee_unit: "percent",
-  platform_fee_percent: "",
-  platform_fee_percent_unit: "percent",
+  duration_discounts: [],
 });
 
 function displayNum(n: number | null | undefined): string {
@@ -74,7 +64,14 @@ function asFeeUnit(v: string | undefined, fallback: FeeUnit): FeeUnit {
 }
 
 function settingToForm(s: AdminSetting): FormState {
+  const tiers = Array.isArray(s.duration_discounts)
+    ? s.duration_discounts.map((t) => ({
+        duration: Number(t.duration) || 0,
+        discount: Number(t.discount) || 0,
+      }))
+    : [];
   return {
+    fee_label: (s.fee_label ?? "").trim(),
     tax: displayNum(s.tax),
     tax_unit: asFeeUnit(s.tax_unit as string, "percent"),
     platform_fee: displayNum(s.platform_fee),
@@ -89,20 +86,8 @@ function settingToForm(s: AdminSetting): FormState {
     security_deposit_unit: asFeeUnit(s.security_deposit_unit as string, "fixed"),
     inspection_charges: displayNum(s.inspection_charges),
     inspection_charges_unit: asFeeUnit(s.inspection_charges_unit as string, "fixed"),
-    marketplace_fee_percent: displayNum(s.marketplace_fee_percent),
-    marketplace_fee_unit: asFeeUnit(s.marketplace_fee_unit as string, "percent"),
-    administration_fee_percent: displayNum(s.administration_fee_percent),
-    administration_fee_unit: asFeeUnit(s.administration_fee_unit as string, "percent"),
-    platform_fee_percent: displayNum(s.platform_fee_percent),
-    platform_fee_percent_unit: asFeeUnit(s.platform_fee_percent_unit as string, "percent"),
+    duration_discounts: tiers,
   };
-}
-
-function pctOrNull(s: string): number | null {
-  const t = s.trim();
-  if (t === "") return null;
-  const n = parseFloat(t);
-  return Number.isFinite(n) ? n : null;
 }
 
 function num(s: string, fallback = 0): number {
@@ -110,9 +95,17 @@ function num(s: string, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
-function buildPayload(form: FormState, persisted: AdminSetting, usesStructuredFees: boolean) {
+function buildPayload(form: FormState, persisted: AdminSetting) {
+  const duration_discounts = form.duration_discounts
+    .map((t) => ({
+      duration: Math.max(0, Math.floor(Number(t.duration) || 0)),
+      discount: Math.max(0, Number(t.discount) || 0),
+    }))
+    .filter((t) => t.duration > 0);
+
   return {
     title: (persisted.title ?? "").trim() || "UNear",
+    fee_label: form.fee_label.trim() || null,
     tax: num(form.tax),
     tax_unit: form.tax_unit,
     platform_fee: num(form.platform_fee),
@@ -127,23 +120,12 @@ function buildPayload(form: FormState, persisted: AdminSetting, usesStructuredFe
     security_deposit_unit: form.security_deposit_unit,
     inspection_charges: num(form.inspection_charges),
     inspection_charges_unit: form.inspection_charges_unit,
+    duration_discounts,
     app_store_url: persisted.app_store_url,
     play_store_url: persisted.play_store_url,
-    marketplace_fee_percent: usesStructuredFees ? pctOrNull(form.marketplace_fee_percent) : null,
-    marketplace_fee_unit: form.marketplace_fee_unit,
-    administration_fee_percent: usesStructuredFees ? pctOrNull(form.administration_fee_percent) : null,
-    administration_fee_unit: form.administration_fee_unit,
-    platform_fee_percent: usesStructuredFees ? pctOrNull(form.platform_fee_percent) : null,
-    platform_fee_percent_unit: form.platform_fee_percent_unit,
-  };
-}
-
-function clearStructuredFees(prev: FormState): FormState {
-  return {
-    ...prev,
-    marketplace_fee_percent: "",
-    administration_fee_percent: "",
-    platform_fee_percent: "",
+    marketplace_fee_percent: null,
+    administration_fee_percent: null,
+    platform_fee_percent: null,
   };
 }
 
@@ -210,31 +192,9 @@ function SettingsPageSkeleton() {
         <div className="space-y-4">
           <SettingsFieldRowSkeleton />
           <SettingsFieldRowSkeleton />
-          <Skeleton className="h-11 w-full rounded-lg" />
-        </div>
-      </section>
-
-      <section className="admin-card space-y-5 border-border/80 bg-gradient-to-br from-card via-card to-muted/10 dark:to-muted/5">
-        <div className="space-y-2">
-          <Skeleton className="h-5 w-56 max-w-full" />
-          <Skeleton className="h-4 w-full max-w-2xl" />
-          <Skeleton className="h-4 w-full max-w-xl" />
-        </div>
-        <div className="space-y-4">
-          <SettingsFieldRowSkeleton />
           <SettingsFieldRowSkeleton />
         </div>
       </section>
-
-      <section className="admin-card space-y-5 border-border/80 bg-gradient-to-br from-card via-card to-muted/10 dark:to-muted/5">
-        <Skeleton className="h-5 w-40 max-w-full" />
-        <div className="space-y-4">
-          <SettingsFieldRowSkeleton />
-          <SettingsFieldRowSkeleton />
-          <SettingsFieldRowSkeleton />
-        </div>
-      </section>
-
       <Skeleton className="h-10 w-[140px] rounded-md" />
     </div>
   );
@@ -259,22 +219,10 @@ const SettingsPage = () => {
   const { data, isLoading, isError, error, refetch, isFetching } = useAdminSettingQuery();
   const patchMut = usePatchAdminSettingMutation();
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   useEffect(() => {
     if (data) setForm(settingToForm(data));
   }, [data]);
-
-  const usesStructuredFees = useMemo(() => {
-    const m = form.marketplace_fee_percent.trim();
-    const a = form.administration_fee_percent.trim();
-    const p = form.platform_fee_percent.trim();
-    return m !== "" && a !== "" && p !== "";
-  }, [form.marketplace_fee_percent, form.administration_fee_percent, form.platform_fee_percent]);
-
-  useEffect(() => {
-    if (usesStructuredFees) setAdvancedOpen(true);
-  }, [usesStructuredFees]);
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -287,15 +235,29 @@ const SettingsPage = () => {
   }, [isError, error, toast]);
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateTier = (index: number, key: keyof DurationDiscountTier, value: number) => {
     setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      const isSimplePlatformField =
-        key === "platform_fee" ||
-        key === "platform_fee_unit" ||
-        key === "platform_commission" ||
-        key === "platform_commission_unit";
-      return isSimplePlatformField ? clearStructuredFees(next) : next;
+      const next = [...prev.duration_discounts];
+      next[index] = { ...next[index], [key]: value };
+      return { ...prev, duration_discounts: next };
     });
+  };
+
+  const addTier = () => {
+    setForm((prev) => ({
+      ...prev,
+      duration_discounts: [...prev.duration_discounts, { duration: 3, discount: 5 }],
+    }));
+  };
+
+  const removeTier = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      duration_discounts: prev.duration_discounts.filter((_, i) => i !== index),
+    }));
   };
 
   const onSave = () => {
@@ -308,7 +270,7 @@ const SettingsPage = () => {
       return;
     }
     patchMut.mutate(
-      { id: data.id, body: buildPayload(form, data, usesStructuredFees) },
+      { id: data.id, body: buildPayload(form, data) },
       {
         onSuccess: () => toast({ title: "Saved" }),
         onError: (e) =>
@@ -349,12 +311,18 @@ const SettingsPage = () => {
       <div className="w-full min-w-0 space-y-6">
         <SettingsCard
           title="Booking & purchase platform"
-          hint={
-            usesStructuredFees
-              ? "The advanced 3-line split is active for new bookings. Change platform fee or commission below to switch back to the simple model, or adjust all three advanced fields."
-              : "Platform fee and commission apply to new bookings and purchases. Use % or $ per field."
-          }
+          hint="Platform fee and commission apply to new bookings and purchases. Fee label is shown on checkout for the platform fee line."
         >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+            <Label className="text-sm font-medium text-foreground sm:w-44 sm:shrink-0">Fee label</Label>
+            <Input
+              type="text"
+              value={form.fee_label}
+              onChange={(e) => update("fee_label", e.target.value)}
+              placeholder="Unear Application Fee"
+              className="h-10 max-w-md bg-background"
+            />
+          </div>
           <FeeField
             label="Platform fee"
             value={form.platform_fee}
@@ -369,43 +337,58 @@ const SettingsPage = () => {
             onValue={(v) => update("platform_commission", v)}
             onUnit={(u) => update("platform_commission_unit", u)}
           />
+        </SettingsCard>
 
-          <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
-            <CollapsibleTrigger asChild>
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
-              >
-                <span>Advanced — 3-line split</span>
-                <ChevronDown
-                  className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", advancedOpen && "rotate-180")}
-                />
-              </button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-4">
-              <FeeField
-                label="Marketplace"
-                value={form.marketplace_fee_percent}
-                unit={form.marketplace_fee_unit}
-                onValue={(v) => update("marketplace_fee_percent", v)}
-                onUnit={(u) => update("marketplace_fee_unit", u)}
-              />
-              <FeeField
-                label="Administration"
-                value={form.administration_fee_percent}
-                unit={form.administration_fee_unit}
-                onValue={(v) => update("administration_fee_percent", v)}
-                onUnit={(u) => update("administration_fee_unit", u)}
-              />
-              <FeeField
-                label="Platform on marketplace"
-                value={form.platform_fee_percent}
-                unit={form.platform_fee_percent_unit}
-                onValue={(v) => update("platform_fee_percent", v)}
-                onUnit={(u) => update("platform_fee_percent_unit", u)}
-              />
-            </CollapsibleContent>
-          </Collapsible>
+        <SettingsCard
+          title="Duration discounts"
+          hint="Platform default % off trip rent when the booking is long enough. Used when a vehicle has no host duration discounts. Highest matching min-days tier wins."
+        >
+          {form.duration_discounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No tiers yet. Add one to offer longer-trip discounts.</p>
+          ) : (
+            <div className="space-y-3">
+              {form.duration_discounts.map((tier, index) => (
+                <div key={index} className="flex flex-wrap items-end gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Min days</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={tier.duration || ""}
+                      onChange={(e) => updateTier(index, "duration", parseInt(e.target.value, 10) || 0)}
+                      className="h-10 w-28 bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Discount %</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={tier.discount || ""}
+                      onChange={(e) => updateTier(index, "discount", parseFloat(e.target.value) || 0)}
+                      className="h-10 w-28 bg-background"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeTier(index)}
+                    aria-label="Remove tier"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <Button type="button" variant="secondary" size="sm" className="inline-flex items-center gap-2" onClick={addTier}>
+            <Plus className="h-4 w-4" />
+            Add tier
+          </Button>
         </SettingsCard>
 
         <SettingsCard
