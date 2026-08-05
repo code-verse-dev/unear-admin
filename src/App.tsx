@@ -10,9 +10,11 @@ import Dashboard from "@/pages/Dashboard";
 import UsersPage from "@/pages/UsersPage";
 import VehiclesPage from "@/pages/VehiclesPage";
 import ClaimsPage from "@/pages/ClaimsPage";
+import DamageTicketsPage from "@/pages/DamageTicketsPage";
 import TransactionsPage from "@/pages/TransactionsPage";
 import DisputesPage from "@/pages/DisputesPage";
 import InspectionsPage from "@/pages/InspectionsPage";
+import ReviewsPage from "@/pages/ReviewsPage";
 import FaqsPage from "@/pages/FaqsPage";
 import PagesPage from "@/pages/PagesPage";
 import PushNotificationsPage from "@/pages/PushNotificationsPage";
@@ -48,9 +50,11 @@ const App = () => {
               <Route path="/users" element={<UsersPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/claims" element={<ClaimsPage />} />
+              <Route path="/damage-tickets" element={<DamageTicketsPage />} />
               <Route path="/transactions" element={<TransactionsPage />} />
               <Route path="/disputes" element={<DisputesPage />} />
               <Route path="/inspections" element={<InspectionsPage />} />
+              <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/faqs" element={<FaqsPage />} />
               <Route path="/pages" element={<PagesPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
