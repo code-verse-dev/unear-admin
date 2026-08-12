@@ -13,6 +13,14 @@ export type AdminSetting = {
   insurance_addon_amount?: number;
   security_deposit_amount: number;
   inspection_charges: number;
+  late_fee_percent?: number;
+  late_fee_cap_multiplier?: number;
+  late_fee_max_days?: number;
+  late_fee_grace_minutes?: number;
+  late_fee_block_hours?: number;
+  late_fee_pre_next_alert_minutes?: number;
+  convenience_fee?: number;
+  convenience_fee_unit?: FeeUnit | string;
   app_store_url: string | null;
   play_store_url: string | null;
   marketplace_fee_percent: number | null;
@@ -44,6 +52,14 @@ export type AdminSettingUpdate = Partial<
     | "insurance_addon_amount"
     | "security_deposit_amount"
     | "inspection_charges"
+    | "late_fee_percent"
+    | "late_fee_cap_multiplier"
+    | "late_fee_max_days"
+    | "late_fee_grace_minutes"
+    | "late_fee_block_hours"
+    | "late_fee_pre_next_alert_minutes"
+    | "convenience_fee"
+    | "convenience_fee_unit"
     | "app_store_url"
     | "play_store_url"
     | "marketplace_fee_percent"

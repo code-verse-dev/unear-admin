@@ -30,8 +30,14 @@ type FormState = {
   insurance_addon_unit: FeeUnit;
   security_deposit_amount: string;
   security_deposit_unit: FeeUnit;
-  inspection_charges: string;
-  inspection_charges_unit: FeeUnit;
+  late_fee_percent: string;
+  late_fee_cap_multiplier: string;
+  late_fee_max_days: string;
+  late_fee_grace_minutes: string;
+  late_fee_block_hours: string;
+  late_fee_pre_next_alert_minutes: string;
+  convenience_fee: string;
+  convenience_fee_unit: FeeUnit;
 };
 
 const emptyForm = (): FormState => ({
@@ -48,8 +54,14 @@ const emptyForm = (): FormState => ({
   insurance_addon_unit: "fixed",
   security_deposit_amount: "",
   security_deposit_unit: "fixed",
-  inspection_charges: "",
-  inspection_charges_unit: "fixed",
+  late_fee_percent: "10",
+  late_fee_cap_multiplier: "1.5",
+  late_fee_max_days: "3",
+  late_fee_grace_minutes: "30",
+  late_fee_block_hours: "4",
+  late_fee_pre_next_alert_minutes: "60",
+  convenience_fee: "15",
+  convenience_fee_unit: "fixed",
 });
 
 function displayNum(n: number | null | undefined): string {
@@ -76,8 +88,14 @@ function settingToForm(s: AdminSetting): FormState {
     insurance_addon_unit: asFeeUnit(s.insurance_addon_unit as string, "fixed"),
     security_deposit_amount: displayNum(s.security_deposit_amount),
     security_deposit_unit: asFeeUnit(s.security_deposit_unit as string, "fixed"),
-    inspection_charges: displayNum(s.inspection_charges),
-    inspection_charges_unit: asFeeUnit(s.inspection_charges_unit as string, "fixed"),
+    late_fee_percent: displayNum(s.late_fee_percent ?? 10),
+    late_fee_cap_multiplier: displayNum(s.late_fee_cap_multiplier ?? 1.5),
+    late_fee_max_days: displayNum(s.late_fee_max_days ?? 3),
+    late_fee_grace_minutes: displayNum(s.late_fee_grace_minutes ?? 30),
+    late_fee_block_hours: displayNum(s.late_fee_block_hours ?? 4),
+    late_fee_pre_next_alert_minutes: displayNum(s.late_fee_pre_next_alert_minutes ?? 60),
+    convenience_fee: displayNum(s.convenience_fee ?? 15),
+    convenience_fee_unit: asFeeUnit(s.convenience_fee_unit as string, "fixed"),
   };
 }
 
@@ -102,8 +120,17 @@ function buildPayload(form: FormState, persisted: AdminSetting) {
     insurance_addon_unit: form.insurance_addon_unit,
     security_deposit_amount: num(form.security_deposit_amount),
     security_deposit_unit: form.security_deposit_unit,
-    inspection_charges: num(form.inspection_charges),
-    inspection_charges_unit: form.inspection_charges_unit,
+    // Keep inspection_charges as stored (hidden from UI)
+    inspection_charges: persisted.inspection_charges ?? 0,
+    inspection_charges_unit: (persisted.inspection_charges_unit as FeeUnit) || "fixed",
+    late_fee_percent: num(form.late_fee_percent, 10),
+    late_fee_cap_multiplier: num(form.late_fee_cap_multiplier, 1.5),
+    late_fee_max_days: Math.round(num(form.late_fee_max_days, 3)),
+    late_fee_grace_minutes: Math.round(num(form.late_fee_grace_minutes, 30)),
+    late_fee_block_hours: Math.round(num(form.late_fee_block_hours, 4)),
+    late_fee_pre_next_alert_minutes: Math.round(num(form.late_fee_pre_next_alert_minutes, 60)),
+    convenience_fee: num(form.convenience_fee, 15),
+    convenience_fee_unit: form.convenience_fee_unit,
     app_store_url: persisted.app_store_url,
     play_store_url: persisted.play_store_url,
     marketplace_fee_percent: null,
@@ -150,6 +177,38 @@ function FeeField({
             <SelectItem value="fixed">$</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+    </div>
+  );
+}
+
+function NumberField({
+  label,
+  value,
+  onValue,
+  hint,
+  step = "1",
+}: {
+  label: string;
+  value: string;
+  onValue: (v: string) => void;
+  hint?: string;
+  step?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+      <Label className="text-sm font-medium text-foreground sm:w-44 sm:shrink-0">{label}</Label>
+      <div className="flex flex-col gap-1 sm:flex-1 sm:min-w-0">
+        <Input
+          type="number"
+          step={step}
+          min={0}
+          value={value}
+          onChange={(e) => onValue(e.target.value)}
+          placeholder="0"
+          className="h-10 w-[min(100%,140px)] bg-background"
+        />
+        {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
       </div>
     </div>
   );
@@ -221,27 +280,18 @@ const SettingsPage = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const onSave = () => {
-    if (!data?.id) {
+  const onSave = async () => {
+    if (!data?.id) return;
+    try {
+      await patchMut.mutateAsync({ id: data.id, body: buildPayload(form, data) });
+      toast({ title: "Settings saved" });
+    } catch (e) {
       toast({
         title: "Save failed",
-        description: "Settings record has no id. Refresh the page and try again.",
+        description: e instanceof Error ? e.message : "Unknown error",
         variant: "destructive",
       });
-      return;
     }
-    patchMut.mutate(
-      { id: data.id, body: buildPayload(form, data) },
-      {
-        onSuccess: () => toast({ title: "Saved" }),
-        onError: (e) =>
-          toast({
-            title: "Save failed",
-            description: e instanceof Error ? e.message : "Try again.",
-            variant: "destructive",
-          }),
-      }
-    );
   };
 
   if (isLoading && !data) {
@@ -271,11 +321,11 @@ const SettingsPage = () => {
     <PageContainer fullWidth title="Settings">
       <div className="w-full min-w-0 space-y-6">
         <SettingsCard
-          title="Booking & purchase platform"
-          hint="Platform fee and commission apply to new bookings and purchases. Fee label is shown on checkout for the platform fee line."
+          title="Booking & purchase fees"
+          hint="Platform fee and convenience fee are separate guest line items. Fee label is only for the platform fee line on checkout."
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-            <Label className="text-sm font-medium text-foreground sm:w-44 sm:shrink-0">Fee label</Label>
+            <Label className="text-sm font-medium text-foreground sm:w-44 sm:shrink-0">Platform fee label</Label>
             <Input
               type="text"
               value={form.fee_label}
@@ -292,11 +342,61 @@ const SettingsPage = () => {
             onUnit={(u) => update("platform_fee_unit", u)}
           />
           <FeeField
+            label="Convenience fee"
+            value={form.convenience_fee}
+            unit={form.convenience_fee_unit}
+            onValue={(v) => update("convenience_fee", v)}
+            onUnit={(u) => update("convenience_fee_unit", u)}
+          />
+          <FeeField
             label="Commission"
             value={form.platform_commission}
             unit={form.platform_commission_unit}
             onValue={(v) => update("platform_commission", v)}
             onUnit={(u) => update("platform_commission_unit", u)}
+          />
+        </SettingsCard>
+
+        <SettingsCard
+          title="Late return"
+          hint="Platform cut of late fees is separate from the convenience fee. Cap, grace, and blocks control guest late billing."
+        >
+          <NumberField
+            label="Late fee %"
+            value={form.late_fee_percent}
+            onValue={(v) => update("late_fee_percent", v)}
+            hint="Platform % of the late fee amount"
+            step="0.01"
+          />
+          <NumberField
+            label="Cap multiplier"
+            value={form.late_fee_cap_multiplier}
+            onValue={(v) => update("late_fee_cap_multiplier", v)}
+            hint="Max late = multiplier × per-day rent (default 1.5)"
+            step="0.01"
+          />
+          <NumberField
+            label="Max late days"
+            value={form.late_fee_max_days}
+            onValue={(v) => update("late_fee_max_days", v)}
+            hint="Auto-stop clock and notify after N days"
+          />
+          <NumberField
+            label="Grace minutes"
+            value={form.late_fee_grace_minutes}
+            onValue={(v) => update("late_fee_grace_minutes", v)}
+          />
+          <NumberField
+            label="Block hours"
+            value={form.late_fee_block_hours}
+            onValue={(v) => update("late_fee_block_hours", v)}
+            hint="Each block = ¼ of per-day rent"
+          />
+          <NumberField
+            label="Pre-next alert (min)"
+            value={form.late_fee_pre_next_alert_minutes}
+            onValue={(v) => update("late_fee_pre_next_alert_minutes", v)}
+            hint="Notify before next booking if previous trip still out"
           />
         </SettingsCard>
 
@@ -320,7 +420,7 @@ const SettingsPage = () => {
           />
         </SettingsCard>
 
-        <SettingsCard title="Tax & other">
+        <SettingsCard title="Tax & other" hint="Inspection fee is managed outside this screen; the DB value is preserved on save.">
           <FeeField
             label="Tax"
             value={form.tax}
@@ -334,13 +434,6 @@ const SettingsPage = () => {
             unit={form.security_deposit_unit}
             onValue={(v) => update("security_deposit_amount", v)}
             onUnit={(u) => update("security_deposit_unit", u)}
-          />
-          <FeeField
-            label="Inspection"
-            value={form.inspection_charges}
-            unit={form.inspection_charges_unit}
-            onValue={(v) => update("inspection_charges", v)}
-            onUnit={(u) => update("inspection_charges_unit", u)}
           />
         </SettingsCard>
 
