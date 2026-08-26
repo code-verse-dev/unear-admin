@@ -19,6 +19,7 @@ export type AdminSetting = {
   late_fee_grace_minutes?: number;
   late_fee_block_hours?: number;
   late_fee_pre_next_alert_minutes?: number;
+  extension_surcharge_percent?: number;
   convenience_fee?: number;
   convenience_fee_unit?: FeeUnit | string;
   app_store_url: string | null;
@@ -58,6 +59,7 @@ export type AdminSettingUpdate = Partial<
     | "late_fee_grace_minutes"
     | "late_fee_block_hours"
     | "late_fee_pre_next_alert_minutes"
+    | "extension_surcharge_percent"
     | "convenience_fee"
     | "convenience_fee_unit"
     | "app_store_url"

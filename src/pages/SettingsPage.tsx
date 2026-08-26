@@ -36,8 +36,7 @@ type FormState = {
   late_fee_grace_minutes: string;
   late_fee_block_hours: string;
   late_fee_pre_next_alert_minutes: string;
-  convenience_fee: string;
-  convenience_fee_unit: FeeUnit;
+  extension_surcharge_percent: string;
 };
 
 const emptyForm = (): FormState => ({
@@ -60,8 +59,7 @@ const emptyForm = (): FormState => ({
   late_fee_grace_minutes: "30",
   late_fee_block_hours: "4",
   late_fee_pre_next_alert_minutes: "60",
-  convenience_fee: "15",
-  convenience_fee_unit: "fixed",
+  extension_surcharge_percent: "20",
 });
 
 function displayNum(n: number | null | undefined): string {
@@ -94,8 +92,7 @@ function settingToForm(s: AdminSetting): FormState {
     late_fee_grace_minutes: displayNum(s.late_fee_grace_minutes ?? 30),
     late_fee_block_hours: displayNum(s.late_fee_block_hours ?? 4),
     late_fee_pre_next_alert_minutes: displayNum(s.late_fee_pre_next_alert_minutes ?? 60),
-    convenience_fee: displayNum(s.convenience_fee ?? 15),
-    convenience_fee_unit: asFeeUnit(s.convenience_fee_unit as string, "fixed"),
+    extension_surcharge_percent: displayNum(s.extension_surcharge_percent ?? 20),
   };
 }
 
@@ -129,8 +126,8 @@ function buildPayload(form: FormState, persisted: AdminSetting) {
     late_fee_grace_minutes: Math.round(num(form.late_fee_grace_minutes, 30)),
     late_fee_block_hours: Math.round(num(form.late_fee_block_hours, 4)),
     late_fee_pre_next_alert_minutes: Math.round(num(form.late_fee_pre_next_alert_minutes, 60)),
-    convenience_fee: num(form.convenience_fee, 15),
-    convenience_fee_unit: form.convenience_fee_unit,
+    extension_surcharge_percent: num(form.extension_surcharge_percent, 20),
+    convenience_fee: 0,
     app_store_url: persisted.app_store_url,
     play_store_url: persisted.play_store_url,
     marketplace_fee_percent: null,
@@ -342,13 +339,6 @@ const SettingsPage = () => {
             onUnit={(u) => update("platform_fee_unit", u)}
           />
           <FeeField
-            label="Convenience fee"
-            value={form.convenience_fee}
-            unit={form.convenience_fee_unit}
-            onValue={(v) => update("convenience_fee", v)}
-            onUnit={(u) => update("convenience_fee_unit", u)}
-          />
-          <FeeField
             label="Commission"
             value={form.platform_commission}
             unit={form.platform_commission_unit}
@@ -359,7 +349,7 @@ const SettingsPage = () => {
 
         <SettingsCard
           title="Late return"
-          hint="Platform cut of late fees is separate from the convenience fee. Cap, grace, and blocks control guest late billing."
+          hint="Platform cut of late fees is separate from the platform fee. Cap, grace, and blocks control guest late billing."
         >
           <NumberField
             label="Late fee %"
@@ -397,6 +387,19 @@ const SettingsPage = () => {
             value={form.late_fee_pre_next_alert_minutes}
             onValue={(v) => update("late_fee_pre_next_alert_minutes", v)}
             hint="Notify before next booking if previous trip still out"
+          />
+        </SettingsCard>
+
+        <SettingsCard
+          title="Trip extension"
+          hint="Surcharge is added to the daily price before converting to an hourly rate. Hourly = (daily + this %) / 24, then multiplied by extension hours. Days from the app count as 24 hours each."
+        >
+          <NumberField
+            label="Extension surcharge %"
+            value={form.extension_surcharge_percent}
+            onValue={(v) => update("extension_surcharge_percent", v)}
+            hint="Added to daily price before converting to an hourly rate. Hourly = (daily + this %) / 24."
+            step="0.01"
           />
         </SettingsCard>
 
