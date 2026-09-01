@@ -56,9 +56,9 @@ function accountUserLabel(d: AdminDisputeRequest): string {
 }
 
 function disputeStatusLabel(s: number): string {
-  if (s === DISPUTE_REQUEST_STATUS.REQUESTED) return "Requested";
-  if (s === DISPUTE_REQUEST_STATUS.COMPLETED) return "Completed";
-  if (s === DISPUTE_REQUEST_STATUS.CANCELLED) return "Cancelled";
+  if (s === DISPUTE_REQUEST_STATUS.REQUESTED) return "Awaiting Support";
+  if (s === DISPUTE_REQUEST_STATUS.COMPLETED) return "Accepted";
+  if (s === DISPUTE_REQUEST_STATUS.CANCELLED) return "Rejected";
   return `Status ${s}`;
 }
 
@@ -152,7 +152,7 @@ const DisputesPage = () => {
       setDeleteDialogOpen(false);
       setSheetOpen(false);
       setSelected(null);
-      toast({ title: "Dispute deleted", description: `Request #${id} was removed.` });
+      toast({ title: "Dispute deleted", description: `Ticket #${id} was removed.` });
     } catch (e) {
       toast({
         title: "Delete failed",
@@ -173,7 +173,7 @@ const DisputesPage = () => {
     try {
       const updated = await updateMut.mutateAsync({ id: displayDispute.id, body: { status: next } });
       setSelected(updated);
-      toast({ title: "Dispute updated", description: `Request #${updated.id}` });
+      toast({ title: "Dispute updated", description: `Ticket #${updated.id}` });
       await detailQuery.refetch();
     } catch (e) {
       toast({
@@ -185,7 +185,11 @@ const DisputesPage = () => {
   };
 
   const columns: Column<AdminDisputeRequest>[] = [
-    { key: "id", header: "ID", render: (row) => <span className="font-mono text-xs">{row.id}</span> },
+    {
+      key: "id",
+      header: "Ticket",
+      render: (row) => <span className="font-mono text-xs tabular-nums">Ticket #{row.id}</span>,
+    },
     {
       key: "evidence",
       header: "Files",
@@ -278,9 +282,9 @@ const DisputesPage = () => {
               onChange: setStatusFilter,
               options: [
                 { label: "All statuses", value: "all" },
-                { label: "Requested", value: String(DISPUTE_REQUEST_STATUS.REQUESTED) },
-                { label: "Completed", value: String(DISPUTE_REQUEST_STATUS.COMPLETED) },
-                { label: "Cancelled", value: String(DISPUTE_REQUEST_STATUS.CANCELLED) },
+                { label: "Awaiting Support", value: String(DISPUTE_REQUEST_STATUS.REQUESTED) },
+                { label: "Accepted", value: String(DISPUTE_REQUEST_STATUS.COMPLETED) },
+                { label: "Rejected", value: String(DISPUTE_REQUEST_STATUS.CANCELLED) },
               ],
             },
           ]}
@@ -333,7 +337,7 @@ const DisputesPage = () => {
         >
           <SheetDescription className="sr-only">Dispute request details</SheetDescription>
           {displayDispute ? (
-            <SheetTitle className="sr-only">Dispute #{displayDispute.id}</SheetTitle>
+            <SheetTitle className="sr-only">Ticket #{displayDispute.id}</SheetTitle>
           ) : (
             <SheetTitle className="sr-only">Dispute details</SheetTitle>
           )}
@@ -342,7 +346,7 @@ const DisputesPage = () => {
               <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14 sm:pt-6">
                 <div className="mb-4 flex items-start justify-between gap-2 pr-2">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Dispute #{displayDispute.id}</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Ticket #{displayDispute.id}</h2>
                     <p className="text-sm text-muted-foreground">Submitted dispute request</p>
                   </div>
                   {detailQuery.isFetching ? (
@@ -450,9 +454,11 @@ const DisputesPage = () => {
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.REQUESTED)}>Requested</SelectItem>
-                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.COMPLETED)}>Completed</SelectItem>
-                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.CANCELLED)}>Cancelled</SelectItem>
+                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.REQUESTED)}>
+                          Awaiting Support
+                        </SelectItem>
+                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.COMPLETED)}>Accepted</SelectItem>
+                        <SelectItem value={String(DISPUTE_REQUEST_STATUS.CANCELLED)}>Rejected</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -495,7 +501,7 @@ const DisputesPage = () => {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete dispute request?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove dispute #{displayDispute?.id} from the list. The record is soft-deleted and will no
+              This will remove ticket #{displayDispute?.id} from the list. The record is soft-deleted and will no
               longer appear here.
             </AlertDialogDescription>
           </AlertDialogHeader>

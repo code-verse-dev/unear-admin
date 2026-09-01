@@ -1,11 +1,11 @@
+import type { LucideIcon } from "lucide-react";
 import {
   LayoutGrid,
   UsersRound,
   CarFront,
   FileStack,
-  MessageSquareWarning,
+  Headset,
   Wallet,
-  Scale,
   ListChecks,
   Star,
   BookOpen,
@@ -30,14 +30,18 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-const navItems = [
+type NavItem = { title: string; url: string; icon: LucideIcon };
+
+const primaryNavItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutGrid },
   { title: "Users", url: "/users", icon: UsersRound },
   { title: "Vehicles", url: "/vehicles", icon: CarFront },
-  { title: "Claims", url: "/claims", icon: FileStack },
-  { title: "Damage Tickets", url: "/damage-tickets", icon: MessageSquareWarning },
+  { title: "Vehicle Claims", url: "/claims", icon: FileStack },
+  { title: "Support Tickets", url: "/support-tickets", icon: Headset },
+];
+
+const restNavItems: NavItem[] = [
   { title: "Transactions", url: "/transactions", icon: Wallet },
-  { title: "Dispute Requests", url: "/disputes", icon: Scale },
   { title: "Inspection Requests", url: "/inspections", icon: ListChecks },
   { title: "Reviews", url: "/reviews", icon: Star },
   { title: "FAQs", url: "/faqs", icon: BookOpen },
@@ -46,10 +50,60 @@ const navItems = [
   { title: "Settings", url: "/settings", icon: Settings2 },
 ];
 
+const menuButtonClass =
+  "h-auto min-h-11  data-[active=true]:bg-[#DD9332] group-data-[collapsible=icon]:!size-auto group-data-[collapsible=icon]:min-h-11 group-data-[collapsible=icon]:w-full";
+
+const navLinkClass =
+  "flex w-full items-center gap-3.5 rounded-lg pl-2 pr-4 py-2 text-base  font-semibold tracking-tight text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg]:text-sidebar-muted-foreground hover:[&_svg]:text-sidebar-accent-foreground aria-[current=page]:[&_svg]:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2.5";
+
+function isItemActive(pathname: string, url: string) {
+  return url === "/" ? pathname === "/" : pathname.startsWith(url);
+}
+
+function SidebarNavItems({
+  items,
+  collapsed,
+  pathname,
+}: {
+  items: NavItem[];
+  collapsed: boolean;
+  pathname: string;
+}) {
+  return (
+    <>
+      {items.map((item) => (
+        <SidebarMenuItem key={item.title}>
+          <SidebarMenuButton
+            asChild
+            isActive={isItemActive(pathname, item.url)}
+            tooltip={item.title}
+            className={menuButtonClass}
+          >
+            <NavLink
+              to={item.url}
+              end={item.url === "/"}
+              className={navLinkClass}
+              activeClassName=" text-sidebar-accent-foreground"
+            >
+              <item.icon
+                className="h-10 w-10 shrink-0 transition-colors duration-150 "
+                strokeWidth={1.75}
+                aria-hidden
+              />
+              {!collapsed && <span>{item.title}</span>}
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      ))}
+    </>
+  );
+}
+
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
+  const pathname = location.pathname;
 
   return (
     <Sidebar collapsible="icon" className="border-r-0 font-poppins">
@@ -60,35 +114,14 @@ export function AppSidebar() {
         <SidebarGroup className="py-2 pl-4 pr-2 group-data-[collapsible=icon]:px-1.5">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {navItems.map((item) => {
-                const isActive = item.url === "/"
-                  ? location.pathname === "/"
-                  : location.pathname.startsWith(item.url);
-                return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className="h-auto min-h-11  data-[active=true]:bg-[#DD9332] group-data-[collapsible=icon]:!size-auto group-data-[collapsible=icon]:min-h-11 group-data-[collapsible=icon]:w-full"
-                    >
-                      <NavLink
-                        to={item.url}
-                        end={item.url === "/"}
-                        className="flex w-full items-center gap-3.5 rounded-lg pl-2 pr-4 py-2 text-base  font-semibold tracking-tight text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg]:text-sidebar-muted-foreground hover:[&_svg]:text-sidebar-accent-foreground aria-[current=page]:[&_svg]:text-sidebar-accent-foreground group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 group-data-[collapsible=icon]:px-2.5"
-                        activeClassName=" text-sidebar-accent-foreground"
-                      >
-                        <item.icon
-                          className="h-10 w-10 shrink-0 transition-colors duration-150 "
-                          strokeWidth={1.75}
-                          aria-hidden
-                        />
-                        {!collapsed && <span>{item.title}</span>}
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              <SidebarNavItems items={primaryNavItems} collapsed={collapsed} pathname={pathname} />
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup className="py-2 pl-4 pr-2 group-data-[collapsible=icon]:px-1.5">
+          <SidebarGroupContent>
+            <SidebarMenu className="gap-1">
+              <SidebarNavItems items={restNavItems} collapsed={collapsed} pathname={pathname} />
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

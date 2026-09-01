@@ -248,7 +248,11 @@ const ClaimsPage = () => {
     approveMut.isPending || rejectMut.isPending || paidMut.isPending || updateMut.isPending;
 
   const columns: Column<AdminExpenseClaim>[] = [
-    { key: "id", header: "ID", render: (row) => <span className="font-mono text-xs">{row.id}</span> },
+    {
+      key: "id",
+      header: "Ticket",
+      render: (row) => <span className="font-mono text-xs tabular-nums">Ticket #{row.id}</span>,
+    },
     {
       key: "evidence",
       header: "Evidence",
@@ -376,7 +380,11 @@ const ClaimsPage = () => {
   const attachments = displayClaim ? claimAttachmentUrls(displayClaim) : [];
 
   return (
-    <PageContainer title="Claims" subtitle="Review accident expense claims from hosts" fullWidth>
+    <PageContainer
+      title="Vehicle Claims"
+      subtitle="Host reimbursement requests to Unear — not guest extra fees"
+      fullWidth
+    >
       <div className="mb-4 flex flex-col gap-2">
         <SearchFilter
           searchPlaceholder="Search by id, user, email, vehicle, description…"
@@ -456,7 +464,7 @@ const ClaimsPage = () => {
         >
           <SheetDescription className="sr-only">Expense claim details and attachments</SheetDescription>
           {displayClaim ? (
-            <SheetTitle className="sr-only">Claim #{displayClaim.id}</SheetTitle>
+            <SheetTitle className="sr-only">Ticket #{displayClaim.id}</SheetTitle>
           ) : (
             <SheetTitle className="sr-only">Claim details</SheetTitle>
           )}
@@ -465,7 +473,7 @@ const ClaimsPage = () => {
               <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14 sm:pt-6">
                 <div className="mb-4 flex items-start justify-between gap-2 pr-2">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Claim #{displayClaim.id}</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Ticket #{displayClaim.id}</h2>
                     <p className="text-sm text-muted-foreground">Expense claim details and attachments</p>
                   </div>
                   {detailQuery.isFetching ? (

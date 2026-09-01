@@ -51,6 +51,7 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   emptyMessage?: string;
   getRowId?: (row: T) => string | number;
+  onRowClick?: (row: T) => void;
   /** Initial load: table-shaped skeletons instead of empty state. */
   isLoading?: boolean;
   skeletonRowCount?: number;
@@ -68,6 +69,7 @@ function DataTable<T extends Record<string, unknown>>({
   onPageChange,
   emptyMessage = "No data found.",
   getRowId,
+  onRowClick,
   isLoading = false,
   skeletonRowCount,
   pageSize = 20,
@@ -134,7 +136,16 @@ function DataTable<T extends Record<string, unknown>>({
               data.map((row, idx) => (
                 <TableRow
                   key={getRowId != null ? String(getRowId(row)) : idx}
-                  className="hover:bg-muted/30"
+                  className={cn("hover:bg-muted/30", onRowClick && "cursor-pointer")}
+                  onClick={
+                    onRowClick
+                      ? (e) => {
+                          const el = e.target as HTMLElement;
+                          if (el.closest("button, a, input, label, [role='checkbox'], [role='menuitem']")) return;
+                          onRowClick(row);
+                        }
+                      : undefined
+                  }
                 >
                   {columns.map((col) => (
                     <TableCell key={col.key} className={col.className}>
