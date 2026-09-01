@@ -59,6 +59,7 @@ interface DataTableProps<T> {
   pageSize?: number;
   /** Total rows in the full result set (for "Showing X–Y of Z"). */
   totalRecords?: number;
+  tableClassName?: string;
 }
 
 function DataTable<T extends Record<string, unknown>>({
@@ -74,6 +75,7 @@ function DataTable<T extends Record<string, unknown>>({
   skeletonRowCount,
   pageSize = 20,
   totalRecords,
+  tableClassName,
 }: DataTableProps<T>) {
   const rowsSkeleton = skeletonRowCount ?? pageSize;
   const safeTotalPages = Math.max(1, totalPages);
@@ -96,7 +98,7 @@ function DataTable<T extends Record<string, unknown>>({
   return (
     <div className="table-container w-full min-w-0">
       <div className="relative w-full min-w-0">
-        <Table>
+        <Table className={tableClassName}>
           <TableHeader>
             <TableRow className="bg-muted/50 hover:bg-muted/50">
               {columns.map((col) => (

@@ -7,6 +7,7 @@ import {
   supportTicketMessagesQueryKeyRoot,
   type SupportChatRoom,
   type SupportTicketKind,
+  type SupportTicketMessage,
 } from "@/api/supportTicketChat";
 import { damageTicketsQueryKeyRoot, damageTicketDetailQueryKey } from "@/api/damageTickets";
 import { disputeRequestsQueryKeyRoot, disputeRequestDetailQueryKey } from "@/api/disputeRequests";
@@ -40,8 +41,19 @@ export function useSendSupportTicketMessageMutation() {
       room: SupportChatRoom;
       message: string;
     }) => sendSupportTicketMessage(kind, id, { room, message }),
-    onSuccess: (_data, { kind, id, room }) => {
-      qc.invalidateQueries({ queryKey: supportTicketMessagesQueryKey(kind, id, room) });
+    onSuccess: (data, { kind, id, room }) => {
+      const key = supportTicketMessagesQueryKey(kind, id, room);
+      qc.setQueryData(key, (old: { messages?: SupportTicketMessage[] } | undefined) => {
+        const messages = Array.isArray(old?.messages) ? old.messages : [];
+        if (data?.message_id && messages.some((m) => m.message_id === data.message_id)) {
+          return old;
+        }
+        return {
+          ...(old || { kind, ticket_id: id, room, chat_room_id: data?.chat_room_id, pagination: { page: 1, limit: 100, total: 0 }, messages: [] }),
+          messages: [...messages, data],
+        };
+      });
+      void qc.invalidateQueries({ queryKey: key });
       if (kind === "damage") {
         qc.invalidateQueries({ queryKey: damageTicketDetailQueryKey(id) });
         qc.invalidateQueries({ queryKey: damageTicketsQueryKeyRoot });
