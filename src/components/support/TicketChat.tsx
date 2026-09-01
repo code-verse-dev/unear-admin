@@ -87,6 +87,7 @@ export function TicketChat({
     try {
       await sendMutation.mutateAsync({ kind, id, room, message: text });
       setDraft("");
+      setView("all");
     } catch (e) {
       toast({
         title: "Could not send message",

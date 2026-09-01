@@ -219,7 +219,7 @@ const SupportTicketsPage = () => {
     {
       key: "select",
       header: "",
-      className: "w-10",
+      className: "w-10 whitespace-nowrap",
       render: (r) => (
         <Checkbox
           checked={!!selected[r.key]}
@@ -232,18 +232,19 @@ const SupportTicketsPage = () => {
     {
       key: "id",
       header: "Ticket",
+      className: "w-[92px] whitespace-nowrap",
       render: (r) => (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 whitespace-nowrap">
           {r.previewUrl ? (
-            <img src={r.previewUrl} alt="" className="h-10 w-10 rounded-md object-cover border border-border" />
+            <img src={r.previewUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover border border-border" />
           ) : r.attachmentCount > 0 ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-muted">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
               <FileText className="h-4 w-4 text-muted-foreground" />
             </div>
           ) : r.requesterImage ? (
-            <img src={r.requesterImage} alt="" className="h-10 w-10 rounded-full object-cover" />
+            <img src={r.requesterImage} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-xs font-semibold">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
               {r.requesterName.slice(0, 1).toUpperCase()}
             </div>
           )}
@@ -254,8 +255,9 @@ const SupportTicketsPage = () => {
     {
       key: "kind",
       header: "Type",
+      className: "w-[118px] whitespace-nowrap",
       render: (r) => (
-        <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium", kindChipClass(r.kind))}>
+        <span className={cn("inline-flex whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium", kindChipClass(r.kind))}>
           {kindLabel(r.kind)}
         </span>
       ),
@@ -263,37 +265,49 @@ const SupportTicketsPage = () => {
     {
       key: "title",
       header: "Subject",
-      className: "min-w-[180px]",
+      className: "max-w-0 w-[38%] overflow-hidden",
       render: (r) => (
-        <div>
-          <div className="line-clamp-1 text-sm font-medium">{r.title}</div>
-          <div className="line-clamp-1 text-xs text-muted-foreground">{r.requesterName}</div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-medium" title={r.title}>
+            {r.title}
+          </div>
+          <div className="truncate text-xs text-muted-foreground" title={r.requesterName}>
+            {r.requesterName}
+          </div>
         </div>
       ),
     },
     {
       key: "status",
       header: "Status",
+      className: "w-[150px] whitespace-nowrap",
       render: (r) => <StatusBadge variant={r.statusVariant}>{r.statusLabel}</StatusBadge>,
     },
     {
       key: "amount",
       header: "Amount",
-      render: (r) => <span className="tabular-nums text-sm">{money(r.amount)}</span>,
+      className: "w-[100px] whitespace-nowrap",
+      render: (r) => <span className="whitespace-nowrap tabular-nums text-sm">{money(r.amount)}</span>,
     },
     {
       key: "updatedAt",
       header: "Activity",
+      className: "w-[148px] whitespace-nowrap",
       render: (r) => (
-        <div>
-          <div className="text-sm">{relative(r.updatedAt)}</div>
-          <div className="text-[11px] text-muted-foreground">Opened {formatDateUS(r.createdAt)}</div>
+        <div className="min-w-0">
+          <div className="truncate text-sm" title={relative(r.updatedAt)}>
+            {relative(r.updatedAt)}
+          </div>
+          <div className="truncate text-[11px] text-muted-foreground" title={`Opened ${formatDateUS(r.createdAt)}`}>
+            Opened {formatDateUS(r.createdAt)}
+          </div>
         </div>
       ),
     },
     {
       key: "actions",
       header: "",
+      className: "w-[88px] whitespace-nowrap",
       render: (r) => (
         <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <Button
@@ -470,6 +484,7 @@ const SupportTicketsPage = () => {
           Select page
         </div>
         <DataTable
+          tableClassName="table-fixed"
           columns={columns}
           data={pageRows}
           page={currentPage}
