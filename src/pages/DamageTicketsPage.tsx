@@ -58,15 +58,15 @@ function displayUserName(u: AdminDamageTicket["host"] | AdminDamageTicket["guest
 function ticketStatusLabel(s: number): string {
   switch (s) {
     case DAMAGE_TICKET_STATUS.OPEN:
-      return "Open";
+      return "Awaiting Support";
     case DAMAGE_TICKET_STATUS.IN_DISCUSSION:
       return "In discussion";
     case DAMAGE_TICKET_STATUS.AMOUNT_SET:
       return "Amount set";
     case DAMAGE_TICKET_STATUS.CHARGED:
-      return "Charged";
+      return "Accepted";
     case DAMAGE_TICKET_STATUS.CANCELLED:
-      return "Cancelled";
+      return "Rejected";
     default:
       return `Status ${s}`;
   }
@@ -308,8 +308,8 @@ const DamageTicketsPage = () => {
   const columns: Column<AdminDamageTicket>[] = [
     {
       key: "id",
-      header: "ID",
-      render: (r) => <span className="font-mono text-xs">#{r.id}</span>,
+      header: "Ticket",
+      render: (r) => <span className="font-mono text-xs tabular-nums">Ticket #{r.id}</span>,
     },
     {
       key: "booking",
@@ -406,11 +406,11 @@ const DamageTicketsPage = () => {
               onChange: setStatusFilter,
               options: [
                 { label: "All statuses", value: "all" },
-                { label: "Open", value: String(DAMAGE_TICKET_STATUS.OPEN) },
+                { label: "Awaiting Support", value: String(DAMAGE_TICKET_STATUS.OPEN) },
                 { label: "In discussion", value: String(DAMAGE_TICKET_STATUS.IN_DISCUSSION) },
                 { label: "Amount set", value: String(DAMAGE_TICKET_STATUS.AMOUNT_SET) },
-                { label: "Charged", value: String(DAMAGE_TICKET_STATUS.CHARGED) },
-                { label: "Cancelled", value: String(DAMAGE_TICKET_STATUS.CANCELLED) },
+                { label: "Accepted", value: String(DAMAGE_TICKET_STATUS.CHARGED) },
+                { label: "Rejected", value: String(DAMAGE_TICKET_STATUS.CANCELLED) },
               ],
             },
           ]}
@@ -435,7 +435,7 @@ const DamageTicketsPage = () => {
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent className="w-full sm:max-w-xl md:max-w-2xl overflow-y-auto">
-          <SheetTitle>Damage ticket {selectedId ? `#${selectedId}` : ""}</SheetTitle>
+          <SheetTitle>{selectedId ? `Ticket #${selectedId}` : "Damage ticket"}</SheetTitle>
           <SheetDescription>
             Review photos, chat with host and guest, set the final amount, then charge the guest.
           </SheetDescription>

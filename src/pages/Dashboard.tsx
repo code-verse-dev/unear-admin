@@ -254,7 +254,7 @@ const Dashboard = () => {
                 hint="Unpaid or requested"
               />
               <MetricCard
-                title="Expense claims"
+                title="Vehicle claims"
                 value={formatInt(stats.pending_expense_claims)}
                 icon={FileWarning}
                 variant="destructive"
