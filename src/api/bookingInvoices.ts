@@ -72,7 +72,7 @@ export async function getBookingInvoice(id: number): Promise<AdminBookingInvoice
 }
 
 export type UpdateBookingInvoiceBody = {
-  action: "confirm" | "waive" | "set_amount";
+  action: "confirm" | "deny" | "waive" | "counter" | "set_amount";
   amount?: number;
   note?: string | null;
 };

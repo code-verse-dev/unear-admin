@@ -78,7 +78,8 @@ const SupportTicketDetailPage = () => {
 
   const [amountDraft, setAmountDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
-  const [confirm, setConfirm] = useState<"resolve" | "reject" | "charge" | "waive" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<"approve" | "deny" | "counter" | "waive" | "delete" | null>(null);
+  const [counterPromptKey, setCounterPromptKey] = useState(0);
 
   const dispute = disputeQ.data;
   const damage = damageQ.data;
@@ -202,14 +203,14 @@ const SupportTicketDetailPage = () => {
     try {
       if (kind === "dispute") {
         await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.COMPLETED } });
-        toast({ title: "Ticket resolved", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved", description: `Ticket #${id}` });
       } else if (kind === "damage") {
         const amount = parseFloat(amountDraft) || Number(damage?.final_amount) || 0;
         await chargeDamage.mutateAsync({
           id,
           body: { final_amount: amount, admin_notes: notesDraft || null },
         });
-        toast({ title: "Guest charged", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved and guest charged", description: `Ticket #${id}` });
       } else if (kind === "extras") {
         const amount = parseFloat(amountDraft);
         const current = Number(extras?.total_amount) || 0;
@@ -224,7 +225,7 @@ const SupportTicketDetailPage = () => {
             body: { action: "confirm", note: notesDraft || null },
           });
         }
-        toast({ title: "Extras confirmed", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved", description: `Ticket #${id}` });
       }
       setConfirm(null);
     } catch (e) {
@@ -248,14 +249,81 @@ const SupportTicketDetailPage = () => {
       } else if (kind === "extras") {
         await updateExtras.mutateAsync({
           id,
+          body: { action: "deny", note: notesDraft || null },
+        });
+      }
+      setConfirm(null);
+      toast({ title: "Ticket denied", description: `Ticket #${id}` });
+    } catch (e) {
+      toast({
+        title: "Action failed",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const runCounter = async () => {
+    if (kind === "dispute") {
+      setConfirm(null);
+      setCounterPromptKey((value) => value + 1);
+      toast({ title: "Write the counteroffer", description: "The reply box is ready for your counteroffer." });
+      return;
+    }
+
+    const amount = parseFloat(amountDraft);
+    if (!(amount >= 0)) {
+      toast({ title: "Enter a valid counter amount", variant: "destructive" });
+      return;
+    }
+
+    try {
+      if (kind === "damage") {
+        await updateDamage.mutateAsync({
+          id,
+          body: {
+            final_amount: amount,
+            status: DAMAGE_TICKET_STATUS.AMOUNT_SET,
+            admin_notes: notesDraft || null,
+          },
+        });
+      } else {
+        await updateExtras.mutateAsync({
+          id,
+          body: { action: "counter", amount, note: notesDraft || null },
+        });
+      }
+      setConfirm(null);
+      toast({ title: "Counteroffer sent", description: `${money(amount)} on ticket #${id}` });
+    } catch (e) {
+      toast({
+        title: "Counteroffer failed",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const runWaive = async () => {
+    try {
+      if (kind === "dispute") {
+        await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.CANCELLED } });
+      } else if (kind === "damage") {
+        await updateDamage.mutateAsync({
+          id,
+          body: { status: DAMAGE_TICKET_STATUS.CANCELLED, admin_notes: notesDraft || null },
+        });
+      } else {
+        await updateExtras.mutateAsync({
+          id,
           body: { action: "waive", note: notesDraft || null },
         });
       }
       setConfirm(null);
-      toast({ title: kind === "extras" ? "Extras waived" : "Ticket rejected", description: `Ticket #${id}` });
+      toast({ title: "Ticket waived", description: `Ticket #${id}` });
     } catch (e) {
       toast({
-        title: "Action failed",
+        title: "Waive failed",
         description: e instanceof Error ? e.message : "Try again",
         variant: "destructive",
       });
@@ -444,12 +512,23 @@ const SupportTicketDetailPage = () => {
               <div className="space-y-2 pt-2">
                 {isOpen ? (
                   <>
-                    <Button className="w-full" disabled={busy} onClick={() => setConfirm(kind === "damage" ? "charge" : "resolve")}>
+                    <Button className="w-full" disabled={busy} onClick={() => setConfirm("approve")}>
                       <Check className="mr-1 h-4 w-4" />
-                      {kind === "damage" ? "Charge guest" : kind === "extras" ? "Confirm & charge" : "Mark as Resolved"}
+                      Approve
                     </Button>
-                    <Button className="w-full" variant="outline" disabled={busy} onClick={() => setConfirm("reject")}>
-                      {kind === "extras" ? "Waive" : "Reject"}
+                    <Button className="w-full" variant="outline" disabled={busy} onClick={() => setConfirm("deny")}>
+                      Deny
+                    </Button>
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={busy || (kind !== "dispute" && !(parseFloat(amountDraft) >= 0))}
+                      onClick={() => setConfirm("counter")}
+                    >
+                      Counter
+                    </Button>
+                    <Button className="w-full" variant="outline" disabled={busy} onClick={() => setConfirm("waive")}>
+                      Waive
                     </Button>
                   </>
                 ) : null}
@@ -469,6 +548,7 @@ const SupportTicketDetailPage = () => {
               title={subject || tabTitle}
               tag={kindLabel(kind)}
               source="Via app"
+              counterPromptKey={counterPromptKey}
             />
           </div>
         </>
@@ -480,20 +560,26 @@ const SupportTicketDetailPage = () => {
             <AlertDialogTitle>
               {confirm === "delete"
                 ? "Delete this ticket?"
-                : confirm === "reject" || confirm === "waive"
-                  ? kind === "extras"
-                    ? "Waive these extras?"
-                    : "Reject this ticket?"
-                  : confirm === "charge"
-                    ? "Charge the guest?"
-                    : "Mark as resolved?"}
+                : confirm === "deny"
+                  ? "Deny this ticket?"
+                  : confirm === "counter"
+                    ? kind === "dispute"
+                      ? "Write a counteroffer?"
+                      : `Counter with ${money(parseFloat(amountDraft) || 0)}?`
+                    : confirm === "waive"
+                      ? "Waive this ticket?"
+                      : kind === "damage" || kind === "extras"
+                        ? "Approve and charge the guest?"
+                        : "Approve this ticket?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "delete"
                 ? `Ticket #${id} will be removed from the inbox. This is a soft delete.`
-                : confirm === "charge" || (confirm === "resolve" && kind === "extras")
+                : confirm === "approve" && (kind === "damage" || kind === "extras")
                   ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ticket #${id}.`
-                  : `This will update ticket #${id}.`}
+                  : confirm === "counter" && kind === "dispute"
+                    ? "This will move focus to the conversation so you can send the counteroffer."
+                    : `This will update ticket #${id}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -501,13 +587,15 @@ const SupportTicketDetailPage = () => {
             <AlertDialogAction
               disabled={busy}
               className={cn(
-                (confirm === "reject" || confirm === "waive" || confirm === "delete") &&
+                (confirm === "deny" || confirm === "waive" || confirm === "delete") &&
                   "bg-destructive text-destructive-foreground hover:bg-destructive/90"
               )}
               onClick={(e) => {
                 e.preventDefault();
                 if (confirm === "delete") void runDelete();
-                else if (confirm === "reject" || confirm === "waive") void runReject();
+                else if (confirm === "deny") void runReject();
+                else if (confirm === "counter") void runCounter();
+                else if (confirm === "waive") void runWaive();
                 else void runResolve();
               }}
             >

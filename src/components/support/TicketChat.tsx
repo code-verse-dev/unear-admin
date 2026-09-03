@@ -27,6 +27,7 @@ export function TicketChat({
   title,
   source = "Via app",
   tag,
+  counterPromptKey = 0,
 }: {
   kind: SupportTicketKind;
   id: number;
@@ -36,12 +37,14 @@ export function TicketChat({
   title: string;
   source?: string;
   tag?: string;
+  counterPromptKey?: number;
 }) {
   const [room, setRoom] = useState<SupportChatRoom>(rooms[0]?.id ?? "user");
   const [thread, setThread] = useState<"all" | SupportChatRoom>(rooms.length > 1 ? "all" : rooms[0]?.id ?? "user");
   const [view, setView] = useState<"all" | "messages" | "events">("all");
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
   const { toast } = useToast();
 
   const userQ = useSupportTicketMessagesQuery(kind, id, "user", rooms.some((r) => r.id === "user"));
@@ -74,6 +77,12 @@ export function TicketChat({
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [timeline.length, thread, view]);
+
+  useEffect(() => {
+    if (!counterPromptKey) return;
+    setDraft((current) => current || "Counteroffer: ");
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }, [counterPromptKey]);
 
   const refetchAll = () => {
     void userQ.refetch();
@@ -177,6 +186,7 @@ export function TicketChat({
         ) : (
           <div className="flex items-end gap-2">
             <Textarea
+              ref={composerRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={
