@@ -15,6 +15,7 @@ export function useBookingInvoicesListQuery(params: BookingInvoicesListParams) {
     queryKey: bookingInvoicesListQueryKey(params),
     queryFn: () => listBookingInvoices(params),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 

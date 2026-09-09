@@ -12,6 +12,7 @@ import {
 import { damageTicketsQueryKeyRoot, damageTicketDetailQueryKey } from "@/api/damageTickets";
 import { disputeRequestsQueryKeyRoot, disputeRequestDetailQueryKey } from "@/api/disputeRequests";
 import { bookingInvoicesQueryKeyRoot, bookingInvoiceDetailQueryKey } from "@/api/bookingInvoices";
+import { unifiedTicketDetailQueryKey, unifiedTicketsQueryKeyRoot } from "@/api/unifiedTickets";
 
 export function useSupportTicketMessagesQuery(
   kind: SupportTicketKind,
@@ -23,7 +24,7 @@ export function useSupportTicketMessagesQuery(
     queryKey: supportTicketMessagesQueryKey(kind, id, room),
     queryFn: () => getSupportTicketMessages(kind, id, room),
     enabled: enabled && id > 0,
-    refetchInterval: enabled ? 8000 : false,
+    refetchInterval: enabled ? 20_000 : false,
   });
 }
 
@@ -66,6 +67,10 @@ export function useSendSupportTicketMessageMutation() {
         qc.invalidateQueries({ queryKey: bookingInvoiceDetailQueryKey(id) });
         qc.invalidateQueries({ queryKey: bookingInvoicesQueryKeyRoot });
       }
+      if (kind === "claim" || kind === "general") {
+        qc.invalidateQueries({ queryKey: unifiedTicketDetailQueryKey(id) });
+        qc.invalidateQueries({ queryKey: unifiedTicketsQueryKeyRoot });
+      }
     },
   });
 }
@@ -88,6 +93,10 @@ export function useDeleteSupportTicketMutation() {
       if (kind === "extras") {
         qc.removeQueries({ queryKey: bookingInvoiceDetailQueryKey(id) });
         qc.invalidateQueries({ queryKey: bookingInvoicesQueryKeyRoot });
+      }
+      if (kind === "claim" || kind === "general") {
+        qc.removeQueries({ queryKey: unifiedTicketDetailQueryKey(id) });
+        qc.invalidateQueries({ queryKey: unifiedTicketsQueryKeyRoot });
       }
     },
   });

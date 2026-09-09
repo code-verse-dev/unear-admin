@@ -16,6 +16,7 @@ export function useDisputeRequestsListQuery(params: DisputeRequestsListParams) {
     queryKey: disputeRequestsListQueryKey(params),
     queryFn: () => listDisputeRequests(params),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 

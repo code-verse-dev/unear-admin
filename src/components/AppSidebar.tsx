@@ -3,10 +3,8 @@ import {
   LayoutGrid,
   UsersRound,
   CarFront,
-  FileStack,
   Headset,
   Wallet,
-  ListChecks,
   Star,
   BookOpen,
   LayoutTemplate,
@@ -36,13 +34,11 @@ const primaryNavItems: NavItem[] = [
   { title: "Dashboard", url: "/", icon: LayoutGrid },
   { title: "Users", url: "/users", icon: UsersRound },
   { title: "Vehicles", url: "/vehicles", icon: CarFront },
-  { title: "Vehicle Claims", url: "/claims", icon: FileStack },
   { title: "Support Tickets", url: "/support-tickets", icon: Headset },
 ];
 
 const restNavItems: NavItem[] = [
   { title: "Transactions", url: "/transactions", icon: Wallet },
-  { title: "Inspection Requests", url: "/inspections", icon: ListChecks },
   { title: "Reviews", url: "/reviews", icon: Star },
   { title: "FAQs", url: "/faqs", icon: BookOpen },
   { title: "Pages", url: "/pages", icon: LayoutTemplate },

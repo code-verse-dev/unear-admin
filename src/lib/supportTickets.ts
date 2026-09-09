@@ -10,6 +10,8 @@ import {
 } from "@/api/bookingInvoices";
 import { resolveMediaUrl } from "@/lib/admin-api";
 import type { SupportTicketKind } from "@/api/supportTicketChat";
+import type { AdminUnifiedTicket } from "@/api/unifiedTickets";
+import { UNIFIED_TICKET_STATUS } from "@/api/unifiedTickets";
 
 export type SupportTicketRow = {
   key: string;
@@ -74,15 +76,27 @@ export function damageStatusVariant(s: number): SupportTicketRow["statusVariant"
   return "secondary";
 }
 
+export function ticketRef(id: number | string | null | undefined) {
+  if (id == null || id === "") return "TKT-—";
+  return `TKT-${id}`;
+}
+
 export function kindLabel(kind: SupportTicketKind): string {
-  if (kind === "dispute") return "Dispute";
+  if (kind === "dispute" || kind === "claim") return "Dispute";
   if (kind === "damage") return "Damage";
+  if (kind === "general") return "General";
   return "Trip extras";
 }
 
+/** Host↔guest money is a claim until someone disputes it; admin then sees a dispute ticket. */
+export function isDisputeKind(kind: SupportTicketKind): boolean {
+  return kind === "dispute" || kind === "claim";
+}
+
 export function kindChipClass(kind: SupportTicketKind): string {
-  if (kind === "dispute") return "bg-info/10 text-info border-info/20";
+  if (kind === "dispute" || kind === "claim") return "bg-info/10 text-info border-info/20";
   if (kind === "damage") return "bg-warning/10 text-warning border-warning/20";
+  if (kind === "general") return "bg-primary/10 text-primary border-primary/20";
   return "bg-secondary/10 text-secondary border-secondary/20";
 }
 
@@ -171,6 +185,30 @@ export function rowFromExtras(inv: AdminBookingInvoice): SupportTicketRow {
     bookingId: inv.booking_id,
     attachmentCount: files.length,
     previewUrl: firstImage(files),
+  };
+}
+
+export function rowFromUnified(t: AdminUnifiedTicket): SupportTicketRow {
+  const name = partyName(t.requester, `User #${t.requester_id}`);
+  const files = Array.isArray(t.attachments) ? (t.attachments as string[]) : [];
+  return {
+    key: `${t.kind}-${t.id}`,
+    kind: t.kind,
+    id: t.id,
+    title: t.title || t.category || kindLabel(t.kind),
+    subtitle: t.booking_id ? `Booking #${t.booking_id}` : name,
+    statusLabel: t.status_label || (t.is_open ? "Awaiting Support" : "Closed"),
+    statusVariant: t.status === UNIFIED_TICKET_STATUS.CANCELLED ? "destructive" : t.is_open ? "warning" : "success",
+    isOpen: !!t.is_open || t.status === UNIFIED_TICKET_STATUS.OPEN || t.status === UNIFIED_TICKET_STATUS.IN_DISCUSSION,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
+    requesterName: name,
+    requesterImage: resolveMediaUrl(t.requester?.image_url),
+    amount: t.amount ?? t.claim?.amount ?? null,
+    bookingId: t.booking_id ?? null,
+    attachmentCount: files.length,
+    email: t.requester?.email,
+    phone: t.requester?.mobile_no || undefined,
   };
 }
 

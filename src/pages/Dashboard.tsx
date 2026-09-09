@@ -5,7 +5,6 @@ import {
   CalendarCheck,
   DollarSign,
   AlertTriangle,
-  ClipboardCheck,
   Loader2,
   FileWarning,
 } from "lucide-react";
@@ -180,7 +179,10 @@ const Dashboard = () => {
   );
 
   const activities = useMemo(
-    () => (data?.recent_activity ?? []).map(mapActivityItem),
+    () =>
+      (data?.recent_activity ?? [])
+        .filter((row) => row.kind !== "inspection_request")
+        .map(mapActivityItem),
     [data?.recent_activity]
   );
 
@@ -228,7 +230,7 @@ const Dashboard = () => {
                 icon={DollarSign}
                 variant="info"
                 trend={trendVsPrior30d(stats.period_revenue_30d ?? 0, stats.period_revenue_prev_30d ?? 0)}
-                hint={`${formatUsd(stats.period_revenue_30d ?? 0)} earned in last 30 days (bookings, purchases, inspections)`}
+                hint={`${formatUsd(stats.period_revenue_30d ?? 0)} earned in last 30 days (bookings and purchases)`}
               />
               <MetricCard
                 title="Active listings"
@@ -239,7 +241,7 @@ const Dashboard = () => {
                 hint={`${formatInt(stats.new_vehicles_30d ?? 0)} new vehicles listed in last 30 days (rent + sale)`}
               />
             </div>
-            <div className="grid grid-cols-1 border-t border-border/60 pt-6 sm:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 border-t border-border/60 pt-6 sm:grid-cols-2 gap-5">
               <MetricCard
                 title="Open disputes"
                 value={formatInt(stats.pending_disputes)}
@@ -247,18 +249,11 @@ const Dashboard = () => {
                 variant="warning"
               />
               <MetricCard
-                title="Inspections in queue"
-                value={formatInt(stats.open_inspections)}
-                icon={ClipboardCheck}
-                variant="primary"
-                hint="Unpaid or requested"
-              />
-              <MetricCard
-                title="Vehicle claims"
+                title="Open tickets"
                 value={formatInt(stats.pending_expense_claims)}
                 icon={FileWarning}
                 variant="destructive"
-                hint="Pending or under review"
+                hint="Claims and general tickets awaiting support"
               />
             </div>
           </section>

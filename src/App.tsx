@@ -9,11 +9,9 @@ import AdminLayout from "@/components/AdminLayout";
 import Dashboard from "@/pages/Dashboard";
 import UsersPage from "@/pages/UsersPage";
 import VehiclesPage from "@/pages/VehiclesPage";
-import ClaimsPage from "@/pages/ClaimsPage";
 import SupportTicketsPage from "@/pages/SupportTicketsPage";
 import SupportTicketDetailPage from "@/pages/SupportTicketDetailPage";
 import TransactionsPage from "@/pages/TransactionsPage";
-import InspectionsPage from "@/pages/InspectionsPage";
 import ReviewsPage from "@/pages/ReviewsPage";
 import FaqsPage from "@/pages/FaqsPage";
 import PagesPage from "@/pages/PagesPage";
@@ -49,14 +47,14 @@ const App = () => {
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
-              <Route path="/claims" element={<ClaimsPage />} />
+              <Route path="/claims" element={<Navigate to="/support-tickets?type=claim" replace />} />
               <Route path="/support-tickets" element={<SupportTicketsPage />} />
               <Route path="/support-tickets/:kind/:id" element={<SupportTicketDetailPage />} />
               <Route path="/damage-tickets" element={<Navigate to="/support-tickets?type=damage" replace />} />
               <Route path="/trip-extras" element={<Navigate to="/support-tickets?type=extras" replace />} />
               <Route path="/disputes" element={<Navigate to="/support-tickets?type=dispute" replace />} />
               <Route path="/transactions" element={<TransactionsPage />} />
-              <Route path="/inspections" element={<InspectionsPage />} />
+              <Route path="/inspections" element={<Navigate to="/" replace />} />
               <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/faqs" element={<FaqsPage />} />
               <Route path="/pages" element={<PagesPage />} />
