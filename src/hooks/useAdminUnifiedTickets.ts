@@ -27,8 +27,13 @@ export function useUnifiedTicketDetailQuery(id: number, enabled: boolean) {
 export function useUpdateUnifiedTicketMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: { action?: string; admin_notes?: string | null } }) =>
-      updateUnifiedTicket(id, body),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: number;
+      body: { action?: string; amount?: number; admin_notes?: string | null; note?: string | null };
+    }) => updateUnifiedTicket(id, body),
     onSuccess: (data, { id }) => {
       qc.setQueryData(unifiedTicketDetailQueryKey(id), data);
       qc.invalidateQueries({ queryKey: unifiedTicketsQueryKeyRoot });
