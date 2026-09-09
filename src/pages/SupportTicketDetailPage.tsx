@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { TicketChat } from "@/components/support/TicketChat";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { resolveMediaUrl } from "@/lib/admin-api";
 import { DISPUTE_REQUEST_STATUS } from "@/api/disputeRequests";
 import { DAMAGE_TICKET_STATUS } from "@/api/damageTickets";
 import { extrasIsOpen, extrasStatusLabel, extrasStatusVariant } from "@/api/bookingInvoices";
@@ -20,6 +19,7 @@ import {
   disputeStatusVariant,
   kindLabel,
   partyName,
+  ticketRef,
 } from "@/lib/supportTickets";
 import { useDisputeRequestDetailQuery, useUpdateDisputeRequestMutation } from "@/hooks/useAdminDisputeRequests";
 import {
@@ -29,7 +29,9 @@ import {
 } from "@/hooks/useAdminDamageTickets";
 import { useBookingInvoiceDetailQuery, useUpdateBookingInvoiceMutation } from "@/hooks/useAdminBookingInvoices";
 import { useDeleteSupportTicketMutation } from "@/hooks/useSupportTicketChat";
-import { buildSupportTicketEvents, initials } from "@/lib/ticketTimeline";
+import { useUnifiedTicketDetailQuery, useUpdateUnifiedTicketMutation } from "@/hooks/useAdminUnifiedTickets";
+import { UNIFIED_TICKET_STATUS } from "@/api/unifiedTickets";
+import { buildSupportTicketEvents } from "@/lib/ticketTimeline";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +46,7 @@ import {
 const money = (n: number | null | undefined) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n) || 0);
 
-const KINDS: SupportTicketKind[] = ["dispute", "damage", "extras"];
+const KINDS: SupportTicketKind[] = ["dispute", "damage", "extras", "claim", "general"];
 
 function Field({ label, value, extra }: { label: string; value: string; extra?: ReactNode }) {
   return (
@@ -69,11 +71,13 @@ const SupportTicketDetailPage = () => {
   const disputeQ = useDisputeRequestDetailQuery(id, valid && kind === "dispute");
   const damageQ = useDamageTicketDetailQuery(id, valid && kind === "damage");
   const extrasQ = useBookingInvoiceDetailQuery(id, valid && kind === "extras");
+  const unifiedQ = useUnifiedTicketDetailQuery(id, valid && (kind === "claim" || kind === "general"));
 
   const updateDispute = useUpdateDisputeRequestMutation();
   const updateDamage = useUpdateDamageTicketMutation();
   const chargeDamage = useChargeDamageTicketMutation();
   const updateExtras = useUpdateBookingInvoiceMutation();
+  const updateUnified = useUpdateUnifiedTicketMutation();
   const deleteMut = useDeleteSupportTicketMutation();
 
   const [amountDraft, setAmountDraft] = useState("");
@@ -84,6 +88,7 @@ const SupportTicketDetailPage = () => {
   const dispute = disputeQ.data;
   const damage = damageQ.data;
   const extras = extrasQ.data;
+  const unified = unifiedQ.data;
 
   useEffect(() => {
     if (kind === "damage" && damage) {
@@ -94,31 +99,41 @@ const SupportTicketDetailPage = () => {
       setAmountDraft(String(extras.total_amount ?? ""));
       setNotesDraft(extras.dispute_note || extras.note || "");
     }
-  }, [kind, damage, extras]);
+    if ((kind === "claim" || kind === "general") && unified) {
+      setAmountDraft(String(unified.amount ?? unified.claim?.amount ?? ""));
+      setNotesDraft(unified.admin_notes || "");
+    }
+  }, [kind, damage, extras, unified]);
 
   const loading =
     (kind === "dispute" && disputeQ.isLoading) ||
     (kind === "damage" && damageQ.isLoading) ||
-    (kind === "extras" && extrasQ.isLoading);
+    (kind === "extras" && extrasQ.isLoading) ||
+    ((kind === "claim" || kind === "general") && unifiedQ.isLoading);
 
   const error =
     (kind === "dispute" && disputeQ.error) ||
     (kind === "damage" && damageQ.error) ||
-    (kind === "extras" && extrasQ.error);
+    (kind === "extras" && extrasQ.error) ||
+    ((kind === "claim" || kind === "general") && unifiedQ.error);
 
   const statusLabel = useMemo(() => {
     if (kind === "dispute" && dispute) return disputeStatusLabel(dispute.status);
     if (kind === "damage" && damage) return damageStatusLabel(damage.status);
     if (kind === "extras" && extras) return extrasStatusLabel(extras.status);
+    if ((kind === "claim" || kind === "general") && unified) return unified.status_label || "—";
     return "—";
-  }, [kind, dispute, damage, extras]);
+  }, [kind, dispute, damage, extras, unified]);
 
   const statusVariant = useMemo(() => {
     if (kind === "dispute" && dispute) return disputeStatusVariant(dispute.status);
     if (kind === "damage" && damage) return damageStatusVariant(damage.status);
     if (kind === "extras" && extras) return extrasStatusVariant(extras.status);
+    if ((kind === "claim" || kind === "general") && unified) {
+      return unified.is_open ? "warning" : unified.status === UNIFIED_TICKET_STATUS.CANCELLED ? "destructive" : "success";
+    }
     return "secondary" as const;
-  }, [kind, dispute, damage, extras]);
+  }, [kind, dispute, damage, extras, unified]);
 
   const isOpen =
     (kind === "dispute" && dispute?.status === DISPUTE_REQUEST_STATUS.REQUESTED) ||
@@ -126,24 +141,34 @@ const SupportTicketDetailPage = () => {
       damage &&
       damage.status !== DAMAGE_TICKET_STATUS.CHARGED &&
       damage.status !== DAMAGE_TICKET_STATUS.CANCELLED) ||
-    (kind === "extras" && extras && extrasIsOpen(extras.status));
+    (kind === "extras" && extras && extrasIsOpen(extras.status)) ||
+    ((kind === "claim" || kind === "general") && !!unified?.is_open);
 
-  const chatDisabled = kind === "damage" && damage?.status === DAMAGE_TICKET_STATUS.CANCELLED;
+  const chatDisabled =
+    (kind === "damage" && damage?.status === DAMAGE_TICKET_STATUS.CANCELLED) ||
+    ((kind === "claim" || kind === "general") &&
+      unified &&
+      (unified.status === UNIFIED_TICKET_STATUS.CANCELLED || unified.status === UNIFIED_TICKET_STATUS.RESOLVED));
 
   const rooms: { id: SupportChatRoom; label: string }[] =
-    kind === "dispute"
+    kind === "dispute" || kind === "general"
       ? [{ id: "user", label: "User" }]
-      : [
-          { id: "host", label: "Host" },
-          { id: "guest", label: "Guest" },
-        ];
+      : kind === "claim"
+        ? [
+            { id: "host", label: "Host" },
+            { id: "guest", label: "Guest" },
+            { id: "user", label: "User" },
+          ]
+        : [
+            { id: "host", label: "Host" },
+            { id: "guest", label: "Guest" },
+          ];
 
   const headerUser = (() => {
     if (kind === "dispute" && dispute) {
       return {
         name: dispute.full_name || partyName(dispute.user, `User #${dispute.user_id}`),
         subtitle: dispute.category || kindLabel(kind),
-        image: resolveMediaUrl(dispute.user?.image_url),
         email: dispute.email,
         phone: dispute.phone_number,
         meta: [dispute.car_model_year, dispute.email].filter(Boolean).join(" · "),
@@ -159,7 +184,6 @@ const SupportTicketDetailPage = () => {
       return {
         name: guest,
         subtitle: `Host ${partyName(damage.host, `#${damage.host_id}`)}`,
-        image: resolveMediaUrl(damage.guest?.image_url),
         email: damage.guest?.email,
         phone: damage.guest?.mobile_no || undefined,
         meta: vehicle,
@@ -169,16 +193,29 @@ const SupportTicketDetailPage = () => {
       return {
         name: `Guest #${extras.guest_id}`,
         subtitle: `Host #${extras.host_id}`,
-        image: undefined as string | undefined,
         email: undefined as string | undefined,
         phone: undefined as string | undefined,
         meta: `Booking #${extras.booking_id}`,
       };
     }
+    if ((kind === "claim" || kind === "general") && unified) {
+      const name = partyName(unified.requester, `User #${unified.requester_id}`);
+      const vehicle = unified.vehicle
+        ? [unified.vehicle.year, unified.vehicle.make, unified.vehicle.model].filter(Boolean).join(" ")
+        : unified.booking_id
+          ? `Booking #${unified.booking_id}`
+          : "";
+      return {
+        name,
+        subtitle: unified.title || kindLabel(kind),
+        email: unified.requester?.email,
+        phone: unified.requester?.mobile_no || undefined,
+        meta: vehicle,
+      };
+    }
     return {
       name: "—",
       subtitle: kindLabel(kind),
-      image: undefined as string | undefined,
       email: undefined as string | undefined,
       phone: undefined as string | undefined,
       meta: "",
@@ -190,27 +227,29 @@ const SupportTicketDetailPage = () => {
       ? dispute.category
       : kind === "damage" && damage
         ? damage.damage_description?.trim() || `Booking #${damage.booking_id}`
-        : extras?.items?.[0]?.title || kindLabel(kind);
+        : kind === "claim" || kind === "general"
+          ? unified?.title || kindLabel(kind)
+          : extras?.items?.[0]?.title || kindLabel(kind);
 
-  const tabTitle = `${kindLabel(kind)} — TKT — ${id}`;
+  const tabTitle = `${ticketRef(id)} · ${kindLabel(kind)}`;
 
   const timelineEvents = useMemo(
-    () => buildSupportTicketEvents({ kind, dispute, damage, extras }),
-    [kind, dispute, damage, extras]
+    () => buildSupportTicketEvents({ kind, dispute, damage, extras, unified }),
+    [kind, dispute, damage, extras, unified]
   );
 
   const runResolve = async () => {
     try {
       if (kind === "dispute") {
         await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.COMPLETED } });
-        toast({ title: "Ticket approved", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved", description: ticketRef(id) });
       } else if (kind === "damage") {
         const amount = parseFloat(amountDraft) || Number(damage?.final_amount) || 0;
         await chargeDamage.mutateAsync({
           id,
           body: { final_amount: amount, admin_notes: notesDraft || null },
         });
-        toast({ title: "Ticket approved and guest charged", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved and guest charged", description: ticketRef(id) });
       } else if (kind === "extras") {
         const amount = parseFloat(amountDraft);
         const current = Number(extras?.total_amount) || 0;
@@ -225,7 +264,13 @@ const SupportTicketDetailPage = () => {
             body: { action: "confirm", note: notesDraft || null },
           });
         }
-        toast({ title: "Ticket approved", description: `Ticket #${id}` });
+        toast({ title: "Ticket approved", description: ticketRef(id) });
+      } else if (kind === "claim" || kind === "general") {
+        await updateUnified.mutateAsync({
+          id,
+          body: { action: "resolve", admin_notes: notesDraft || null },
+        });
+        toast({ title: "Ticket closed", description: ticketRef(id) });
       }
       setConfirm(null);
     } catch (e) {
@@ -251,9 +296,14 @@ const SupportTicketDetailPage = () => {
           id,
           body: { action: "deny", note: notesDraft || null },
         });
+      } else if (kind === "claim" || kind === "general") {
+        await updateUnified.mutateAsync({
+          id,
+          body: { action: "cancel", admin_notes: notesDraft || null },
+        });
       }
       setConfirm(null);
-      toast({ title: "Ticket denied", description: `Ticket #${id}` });
+      toast({ title: "Ticket denied", description: ticketRef(id) });
     } catch (e) {
       toast({
         title: "Action failed",
@@ -294,7 +344,7 @@ const SupportTicketDetailPage = () => {
         });
       }
       setConfirm(null);
-      toast({ title: "Counteroffer sent", description: `${money(amount)} on ticket #${id}` });
+      toast({ title: "Counteroffer sent", description: `${money(amount)} on ${ticketRef(id)}` });
     } catch (e) {
       toast({
         title: "Counteroffer failed",
@@ -313,6 +363,11 @@ const SupportTicketDetailPage = () => {
           id,
           body: { status: DAMAGE_TICKET_STATUS.CANCELLED, admin_notes: notesDraft || null },
         });
+      } else if (kind === "claim" || kind === "general") {
+        await updateUnified.mutateAsync({
+          id,
+          body: { action: "cancel", admin_notes: notesDraft || null },
+        });
       } else {
         await updateExtras.mutateAsync({
           id,
@@ -320,7 +375,7 @@ const SupportTicketDetailPage = () => {
         });
       }
       setConfirm(null);
-      toast({ title: "Ticket waived", description: `Ticket #${id}` });
+      toast({ title: "Ticket waived", description: ticketRef(id) });
     } catch (e) {
       toast({
         title: "Waive failed",
@@ -334,7 +389,7 @@ const SupportTicketDetailPage = () => {
     try {
       await deleteMut.mutateAsync({ kind, id });
       setConfirm(null);
-      toast({ title: "Ticket deleted", description: `Ticket #${id} was removed.` });
+      toast({ title: "Ticket deleted", description: `${ticketRef(id)} was removed.` });
       navigate("/support-tickets");
     } catch (e) {
       toast({
@@ -415,18 +470,12 @@ const SupportTicketDetailPage = () => {
       ) : (
         <>
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-4">
-            <div className="flex min-w-0 items-center gap-3">
-              {headerUser.image ? (
-                <img src={headerUser.image} alt="" className="h-11 w-11 rounded-full object-cover" />
-              ) : (
-                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold tracking-wide text-white">
-                  {initials(headerUser.name)}
-                </div>
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{headerUser.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{headerUser.subtitle}</p>
-              </div>
+            <div className="min-w-0">
+              <p className="font-mono text-lg font-semibold tracking-tight">{ticketRef(id)}</p>
+              <p className="truncate text-sm text-muted-foreground">
+                {headerUser.name}
+                {headerUser.subtitle ? ` · ${headerUser.subtitle}` : ""}
+              </p>
             </div>
             <div className="min-w-0 flex-1 text-sm text-muted-foreground">
               <span className="font-medium text-foreground/80">Details: </span>
@@ -437,43 +486,95 @@ const SupportTicketDetailPage = () => {
                 <span className={cn("h-2 w-2 rounded-full", isOpen ? "bg-emerald-500" : openDot)} />
                 {isOpen ? "Open" : statusLabel}
               </div>
-              <p className="text-xs text-muted-foreground">Ticket # {id}</p>
+              <p className="text-xs text-muted-foreground">{kindLabel(kind)}</p>
             </div>
           </div>
 
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
             <aside className="min-h-0 space-y-4 overflow-y-auto border-r border-border bg-background p-5">
+              {kind === "damage" && damage ? (
+                <>
+                  <Field label="Ticket" value={ticketRef(id)} />
+                  <Field
+                    label="Car"
+                    value={
+                      damage.booking?.vehicle
+                        ? [damage.booking.vehicle.year, damage.booking.vehicle.make, damage.booking.vehicle.model]
+                            .filter(Boolean)
+                            .join(" ") || "—"
+                        : "—"
+                    }
+                  />
+                  <Field label="Plate" value={damage.booking?.vehicle?.license_plate_number || "—"} />
+                  <Field label="Booking" value={`#${damage.booking_id}`} />
+                  <Field label="Host" value={partyName(damage.host, `#${damage.host_id}`)} />
+                  <Field label="Guest" value={partyName(damage.guest, `#${damage.guest_id}`)} />
+                  <Field label="Proposed" value={money(damage.proposed_amount)} />
+                  {isOpen ? (
+                    <div>
+                      <Label className="mb-1.5 text-xs text-muted-foreground">Charge amount</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={amountDraft}
+                        onChange={(e) => setAmountDraft(e.target.value)}
+                        disabled={busy}
+                      />
+                    </div>
+                  ) : (
+                    <Field label="Charge amount" value={money(damage.final_amount ?? damage.proposed_amount)} />
+                  )}
+                  {isOpen ? (
+                    <div>
+                      <Label className="mb-1.5 text-xs text-muted-foreground">Admin notes</Label>
+                      <Textarea
+                        rows={3}
+                        value={notesDraft}
+                        onChange={(e) => setNotesDraft(e.target.value)}
+                        disabled={busy}
+                      />
+                    </div>
+                  ) : damage.admin_notes ? (
+                    <Field label="Admin notes" value={damage.admin_notes} />
+                  ) : null}
+                </>
+              ) : (
+                <>
+              <Field label="Ticket" value={ticketRef(id)} />
               <Field label="Requester" value={headerUser.name} />
               <Field label="Type" value={kindLabel(kind)} />
-              {kind === "damage" && damage ? (
-                <Field label="Host" value={partyName(damage.host, `#${damage.host_id}`)} />
+              {kind === "claim" && unified ? (
+                <Field label="Host" value={partyName(unified.host, unified.host_id ? `#${unified.host_id}` : "—")} />
               ) : null}
               {kind === "extras" && extras ? <Field label="Host" value={`#${extras.host_id}`} /> : null}
-              {kind !== "dispute" ? (
+              {kind !== "dispute" && kind !== "general" ? (
                 <Field
                   label="Guest"
                   value={
-                    kind === "damage" && damage
-                      ? partyName(damage.guest, `#${damage.guest_id}`)
-                      : extras
-                        ? `#${extras.guest_id}`
-                        : "—"
+                    kind === "claim" && unified
+                        ? partyName(unified.guest, unified.guest_id ? `#${unified.guest_id}` : "—")
+                        : extras
+                          ? `#${extras.guest_id}`
+                          : "—"
                   }
                 />
               ) : null}
               <Field
                 label="Booking"
                 value={
-                  kind === "damage" && damage
-                    ? `#${damage.booking_id}`
-                    : kind === "extras" && extras
+                  kind === "extras" && extras
                       ? `#${extras.booking_id}`
-                      : kind === "dispute" && dispute
-                        ? `Txn ${dispute.transaction_id}`
-                        : "—"
+                      : kind === "claim" && unified?.booking_id
+                        ? `#${unified.booking_id}`
+                        : kind === "general" && unified?.booking_id
+                          ? `#${unified.booking_id}`
+                          : kind === "dispute" && dispute
+                            ? `Txn ${dispute.transaction_id}`
+                            : "—"
                 }
               />
-              {(kind === "damage" || kind === "extras") && isOpen ? (
+              {kind === "extras" && isOpen ? (
                 <div>
                   <Label className="mb-1.5 text-xs text-muted-foreground">Amount</Label>
                   <Input
@@ -489,15 +590,15 @@ const SupportTicketDetailPage = () => {
                 <Field
                   label="Amount"
                   value={
-                    kind === "damage" && damage
-                      ? money(damage.final_amount ?? damage.proposed_amount)
-                      : kind === "extras" && extras
+                    kind === "extras" && extras
                         ? money(extras.total_amount)
-                        : "—"
+                        : kind === "claim" && unified
+                          ? money(unified.amount ?? unified.claim?.amount)
+                          : "—"
                   }
                 />
               )}
-              {isOpen && (kind === "damage" || kind === "extras") ? (
+              {isOpen && (kind === "extras" || kind === "claim" || kind === "general") ? (
                 <div>
                   <Label className="mb-1.5 text-xs text-muted-foreground">Admin notes</Label>
                   <Textarea
@@ -508,6 +609,8 @@ const SupportTicketDetailPage = () => {
                   />
                 </div>
               ) : null}
+                </>
+              )}
 
               <div className="space-y-2 pt-2">
                 {isOpen ? (
@@ -574,12 +677,12 @@ const SupportTicketDetailPage = () => {
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "delete"
-                ? `Ticket #${id} will be removed from the inbox. This is a soft delete.`
+                ? `${ticketRef(id)} will be removed from the inbox. This is a soft delete.`
                 : confirm === "approve" && (kind === "damage" || kind === "extras")
-                  ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ticket #${id}.`
+                  ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ${ticketRef(id)}.`
                   : confirm === "counter" && kind === "dispute"
                     ? "This will move focus to the conversation so you can send the counteroffer."
-                    : `This will update ticket #${id}.`}
+                    : `This will update ${ticketRef(id)}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

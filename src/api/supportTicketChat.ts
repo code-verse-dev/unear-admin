@@ -1,7 +1,7 @@
 import { adminFetch, type ApiSuccess } from "@/lib/admin-api";
 import type { DamageTicketMessage } from "@/api/damageTickets";
 
-export type SupportTicketKind = "dispute" | "damage" | "extras";
+export type SupportTicketKind = "dispute" | "damage" | "extras" | "claim" | "general";
 export type SupportChatRoom = "user" | "host" | "guest";
 
 export type SupportTicketMessage = DamageTicketMessage;

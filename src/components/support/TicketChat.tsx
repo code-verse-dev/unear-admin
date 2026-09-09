@@ -1,15 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Filter, Loader2, RefreshCw, Send } from "lucide-react";
+import { Loader2, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   useSendSupportTicketMessageMutation,
   useSupportTicketMessagesQuery,
@@ -17,6 +11,25 @@ import {
 import type { SupportChatRoom, SupportTicketKind } from "@/api/supportTicketChat";
 import { TicketTimeline } from "@/components/support/TicketTimeline";
 import { mergeTimeline, messagesToTimeline, type TimelineItem } from "@/lib/ticketTimeline";
+
+function dedupeTimeline(items: TimelineItem[]): TimelineItem[] {
+  const out: TimelineItem[] = [];
+  for (const item of items) {
+    if (item.kind !== "message") {
+      out.push(item);
+      continue;
+    }
+    const dup = out.some(
+      (prev) =>
+        prev.kind === "message" &&
+        prev.body === item.body &&
+        prev.actor === item.actor &&
+        Math.abs(new Date(prev.at).getTime() - new Date(item.at).getTime()) < 15_000
+    );
+    if (!dup) out.push(item);
+  }
+  return out;
+}
 
 export function TicketChat({
   kind,
@@ -39,9 +52,6 @@ export function TicketChat({
   tag?: string;
   counterPromptKey?: number;
 }) {
-  const [room, setRoom] = useState<SupportChatRoom>(rooms[0]?.id ?? "user");
-  const [thread, setThread] = useState<"all" | SupportChatRoom>(rooms.length > 1 ? "all" : rooms[0]?.id ?? "user");
-  const [view, setView] = useState<"all" | "messages" | "events">("all");
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const composerRef = useRef<HTMLTextAreaElement | null>(null);
@@ -52,12 +62,14 @@ export function TicketChat({
   const guestQ = useSupportTicketMessagesQuery(kind, id, "guest", rooms.some((r) => r.id === "guest"));
   const sendMutation = useSendSupportTicketMessageMutation();
 
+  const sendRooms = useMemo((): SupportChatRoom[] => {
+    const hostGuest = rooms.filter((r) => r.id === "host" || r.id === "guest").map((r) => r.id);
+    if (hostGuest.length) return hostGuest;
+    return [rooms[0]?.id ?? "user"];
+  }, [rooms]);
+
   const isLoading = userQ.isLoading || hostQ.isLoading || guestQ.isLoading;
   const isFetching = userQ.isFetching || hostQ.isFetching || guestQ.isFetching;
-
-  useEffect(() => {
-    if (!rooms.some((r) => r.id === room) && rooms[0]) setRoom(rooms[0].id);
-  }, [rooms, room]);
 
   const timeline = useMemo(() => {
     const msgs: TimelineItem[] = [
@@ -65,18 +77,12 @@ export function TicketChat({
       ...messagesToTimeline(hostQ.data?.messages ?? [], "host"),
       ...messagesToTimeline(guestQ.data?.messages ?? [], "guest"),
     ];
-    let items = mergeTimeline([...events, ...msgs]);
-    if (rooms.length > 1 && thread !== "all") {
-      items = items.filter((i) => i.kind !== "message" || i.room === thread);
-    }
-    if (view === "messages") items = items.filter((i) => i.kind === "message");
-    if (view === "events") items = items.filter((i) => i.kind !== "message");
-    return items;
-  }, [events, userQ.data, hostQ.data, guestQ.data, thread, rooms.length, view]);
+    return dedupeTimeline(mergeTimeline([...events, ...msgs]));
+  }, [events, userQ.data, hostQ.data, guestQ.data]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [timeline.length, thread, view]);
+  }, [timeline.length]);
 
   useEffect(() => {
     if (!counterPromptKey) return;
@@ -94,9 +100,10 @@ export function TicketChat({
     const text = draft.trim();
     if (!text || disabled) return;
     try {
-      await sendMutation.mutateAsync({ kind, id, room, message: text });
+      for (const room of sendRooms) {
+        await sendMutation.mutateAsync({ kind, id, room, message: text });
+      }
       setDraft("");
-      setView("all");
     } catch (e) {
       toast({
         title: "Could not send message",
@@ -110,58 +117,13 @@ export function TicketChat({
     <div className="flex min-h-0 flex-1 flex-col bg-background">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-5 py-3">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Communication</p>
+          <p className="text-sm font-semibold">Timeline</p>
           <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span className="truncate font-medium text-foreground">{title}</span>
             {tag ? <span className="rounded bg-muted px-1.5 py-px font-medium text-muted-foreground">{tag}</span> : null}
             <span>{source}</span>
           </div>
         </div>
-        {rooms.length > 1
-          ? rooms.map((r) => (
-              <Button
-                key={r.id}
-                type="button"
-                size="sm"
-                variant={room === r.id ? "secondary" : "ghost"}
-                onClick={() => {
-                  setRoom(r.id);
-                  setThread(r.id);
-                }}
-              >
-                {r.label}
-              </Button>
-            ))
-          : null}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" size="sm" variant="outline">
-              <Filter className="mr-1.5 h-3.5 w-3.5" />
-              Filters
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setView("all")}>All activity</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setView("messages")}>Messages only</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setView("events")}>Events only</DropdownMenuItem>
-            {rooms.length > 1 ? (
-              <>
-                <DropdownMenuItem onClick={() => setThread("all")}>Both threads</DropdownMenuItem>
-                {rooms.map((r) => (
-                  <DropdownMenuItem
-                    key={r.id}
-                    onClick={() => {
-                      setThread(r.id);
-                      setRoom(r.id);
-                    }}
-                  >
-                    {r.label} thread
-                  </DropdownMenuItem>
-                ))}
-              </>
-            ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
         <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={refetchAll} disabled={isFetching}>
           <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
         </Button>
@@ -189,11 +151,7 @@ export function TicketChat({
               ref={composerRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder={
-                rooms.length > 1
-                  ? `Reply to ${rooms.find((r) => r.id === room)?.label ?? "user"}…`
-                  : "Write a reply…"
-              }
+              placeholder="Write a reply…"
               rows={2}
               disabled={sendMutation.isPending}
               className="min-h-[44px] resize-none"

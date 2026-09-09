@@ -30,6 +30,18 @@ export type DamageTicketVehicle = {
   license_plate_number?: string | null;
 };
 
+export type DamageTicketInspection = {
+  id: number;
+  type?: number;
+  role?: string;
+  damage?: string | null;
+  description?: string | null;
+  have_accident?: number | boolean;
+  fine_amount?: number;
+  attachments?: unknown;
+  createdAt?: string;
+};
+
 export type DamageTicketBooking = {
   id: number;
   vehicle_id?: number;
@@ -41,6 +53,7 @@ export type DamageTicketBooking = {
   total_amount?: number;
   security_deposit?: number;
   vehicle?: DamageTicketVehicle | null;
+  booking_inspections?: DamageTicketInspection[];
 };
 
 export type AdminDamageTicket = {
@@ -67,9 +80,13 @@ export type AdminDamageTicket = {
   booking: DamageTicketBooking | null;
   inspection?: {
     id: number;
+    type?: number;
+    role?: string;
     damage?: string;
+    description?: string | null;
     fine_amount?: number;
     attachments?: unknown;
+    createdAt?: string;
   } | null;
   createdAt: string;
   updatedAt: string;

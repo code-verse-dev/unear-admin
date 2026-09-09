@@ -19,6 +19,7 @@ export function useDamageTicketsListQuery(params: DamageTicketsListParams) {
     queryKey: damageTicketsListQueryKey(params),
     queryFn: () => listDamageTickets(params),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 

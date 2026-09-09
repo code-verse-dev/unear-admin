@@ -3,11 +3,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
-  Car,
   Copy,
   Download,
   Eye,
-  FileText,
   Headset,
   Loader2,
   MoreHorizontal,
@@ -47,14 +45,18 @@ import { useDeleteSupportTicketMutation } from "@/hooks/useSupportTicketChat";
 import {
   SUPPORT_PAGE_SIZE,
   exportTicketsCsv,
+  isDisputeKind,
   kindChipClass,
   kindLabel,
   rowFromDamage,
   rowFromDispute,
   rowFromExtras,
+  rowFromUnified,
   ticketMatchesSearch,
+  ticketRef,
   type SupportTicketRow,
 } from "@/lib/supportTickets";
+import { useUnifiedTicketsListQuery } from "@/hooks/useAdminUnifiedTickets";
 import { cn } from "@/lib/utils";
 
 const money = (n: number | null | undefined) =>
@@ -91,9 +93,13 @@ const SupportTicketsPage = () => {
   const [page, setPage] = useState(1);
   const typeFromUrl = searchParams.get("type");
   const [typeFilter, setTypeFilter] = useState<string>(
-    typeFromUrl === "dispute" || typeFromUrl === "damage" || typeFromUrl === "extras" ? typeFromUrl : "all"
+    typeFromUrl === "claim" || typeFromUrl === "dispute"
+      ? "dispute"
+      : typeFromUrl === "damage" || typeFromUrl === "extras" || typeFromUrl === "general"
+        ? typeFromUrl
+        : "all"
   );
-  const [statusFilter, setStatusFilter] = useState<string>("open");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pendingDelete, setPendingDelete] = useState<SupportTicketRow[] | null>(null);
@@ -131,21 +137,24 @@ const SupportTicketsPage = () => {
     order: "DESC",
   });
   const extrasQ = useBookingInvoicesListQuery({ status: "all" });
+  const unifiedQ = useUnifiedTicketsListQuery();
 
-  const isLoading = disputesQ.isLoading || damageQ.isLoading || extrasQ.isLoading;
-  const isFetching = disputesQ.isFetching || damageQ.isFetching || extrasQ.isFetching;
+  const isLoading = disputesQ.isLoading || damageQ.isLoading || extrasQ.isLoading || unifiedQ.isLoading;
+  const isFetching = disputesQ.isFetching || damageQ.isFetching || extrasQ.isFetching || unifiedQ.isFetching;
 
   const allRows = useMemo(() => {
     return [
       ...(disputesQ.data?.rows ?? []).map(rowFromDispute),
       ...(damageQ.data?.rows ?? []).map(rowFromDamage),
       ...(extrasQ.data ?? []).map(rowFromExtras),
+      ...(unifiedQ.data ?? []).map(rowFromUnified),
     ];
-  }, [disputesQ.data, damageQ.data, extrasQ.data]);
+  }, [disputesQ.data, damageQ.data, extrasQ.data, unifiedQ.data]);
 
   const rows = useMemo(() => {
     let list = allRows;
-    if (typeFilter !== "all") list = list.filter((r) => r.kind === typeFilter);
+    if (typeFilter === "dispute") list = list.filter((r) => isDisputeKind(r.kind));
+    else if (typeFilter !== "all") list = list.filter((r) => r.kind === typeFilter);
     if (statusFilter === "open") list = list.filter((r) => r.isOpen);
     if (statusFilter === "closed") list = list.filter((r) => !r.isOpen);
     if (debouncedSearch) {
@@ -166,9 +175,10 @@ const SupportTicketsPage = () => {
     return {
       open,
       closed: allRows.length - open,
-      dispute: allRows.filter((r) => r.kind === "dispute").length,
+      dispute: allRows.filter((r) => isDisputeKind(r.kind)).length,
       damage: allRows.filter((r) => r.kind === "damage").length,
       extras: allRows.filter((r) => r.kind === "extras").length,
+      general: allRows.filter((r) => r.kind === "general").length,
     };
   }, [allRows]);
 
@@ -184,8 +194,8 @@ const SupportTicketsPage = () => {
 
   const copyId = async (r: SupportTicketRow) => {
     try {
-      await navigator.clipboard.writeText(`Ticket #${r.id}`);
-      toast({ title: "Copied", description: `Ticket #${r.id}` });
+      await navigator.clipboard.writeText(ticketRef(r.id));
+      toast({ title: "Copied", description: ticketRef(r.id) });
     } catch {
       toast({ title: "Could not copy", variant: "destructive" });
     }
@@ -225,31 +235,18 @@ const SupportTicketsPage = () => {
           checked={!!selected[r.key]}
           onCheckedChange={(v) => setSelected((prev) => ({ ...prev, [r.key]: v === true }))}
           onClick={(e) => e.stopPropagation()}
-          aria-label={`Select ticket ${r.id}`}
+          aria-label={`Select ${ticketRef(r.id)}`}
         />
       ),
     },
     {
       key: "id",
       header: "Ticket",
-      className: "w-[92px] whitespace-nowrap",
+      className: "w-[120px] whitespace-nowrap",
       render: (r) => (
-        <div className="flex items-center gap-2 whitespace-nowrap">
-          {r.previewUrl ? (
-            <img src={r.previewUrl} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover border border-border" />
-          ) : r.attachmentCount > 0 ? (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-muted">
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </div>
-          ) : r.requesterImage ? (
-            <img src={r.requesterImage} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold">
-              {r.requesterName.slice(0, 1).toUpperCase()}
-            </div>
-          )}
-          <span className="font-mono text-xs tabular-nums">#{r.id}</span>
-        </div>
+        <span className="font-mono text-sm font-semibold tabular-nums tracking-tight">
+          {ticketRef(r.id)}
+        </span>
       ),
     },
     {
@@ -347,7 +344,7 @@ const SupportTicketsPage = () => {
     <PageContainer
       fullWidth
       title="Support Tickets"
-      subtitle="One inbox for disputes, damage, and trip extras"
+      subtitle="One inbox for claims, general help, disputes, damage, and trip extras"
       actions={
         <>
           <Button
@@ -357,6 +354,7 @@ const SupportTicketsPage = () => {
               void disputesQ.refetch();
               void damageQ.refetch();
               void extrasQ.refetch();
+              void unifiedQ.refetch();
             }}
             disabled={isFetching}
           >
@@ -370,17 +368,14 @@ const SupportTicketsPage = () => {
         </>
       }
     >
-      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Open" value={stats.open} icon={Headset} variant="warning" />
         <MetricCard title="Closed" value={stats.closed} icon={Scale} variant="success" />
         <button type="button" className="text-left" onClick={() => setTypeFilter("dispute")}>
-          <MetricCard title="Disputes" value={stats.dispute} icon={Scale} variant="info" />
+          <MetricCard title="Disputes" value={stats.dispute} icon={AlertTriangle} variant="destructive" />
         </button>
-        <button type="button" className="text-left" onClick={() => setTypeFilter("damage")}>
-          <MetricCard title="Damage" value={stats.damage} icon={AlertTriangle} variant="destructive" />
-        </button>
-        <button type="button" className="text-left" onClick={() => setTypeFilter("extras")}>
-          <MetricCard title="Trip extras" value={stats.extras} icon={Car} variant="secondary" />
+        <button type="button" className="text-left" onClick={() => setTypeFilter("general")}>
+          <MetricCard title="General" value={stats.general} icon={Headset} variant="info" />
         </button>
       </div>
 
@@ -389,6 +384,7 @@ const SupportTicketsPage = () => {
           [
             ["all", "All"],
             ["dispute", "Dispute"],
+            ["general", "General"],
             ["damage", "Damage"],
             ["extras", "Trip extras"],
           ] as const
@@ -402,7 +398,15 @@ const SupportTicketsPage = () => {
           >
             {label}
             <span className="ml-1.5 tabular-nums opacity-70">
-              {value === "all" ? allRows.length : value === "dispute" ? stats.dispute : value === "damage" ? stats.damage : stats.extras}
+              {value === "all"
+                ? allRows.length
+                : value === "dispute"
+                  ? stats.dispute
+                  : value === "damage"
+                    ? stats.damage
+                    : value === "general"
+                      ? stats.general
+                      : stats.extras}
             </span>
           </Button>
         ))}
@@ -420,9 +424,9 @@ const SupportTicketsPage = () => {
               value: statusFilter,
               onChange: setStatusFilter,
               options: [
+                { label: "All statuses", value: "all" },
                 { label: "Open", value: "open" },
                 { label: "Closed", value: "closed" },
-                { label: "All statuses", value: "all" },
               ],
             },
             {

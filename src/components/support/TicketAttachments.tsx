@@ -31,9 +31,11 @@ function fileName(url: string) {
 export function TicketAttachments({
   attachments,
   compact = false,
+  size = "sm",
 }: {
   attachments: unknown;
   compact?: boolean;
+  size?: "sm" | "lg";
 }) {
   const urls = rawUrls(attachments);
   const [preview, setPreview] = useState<string | null>(null);
@@ -54,15 +56,16 @@ export function TicketAttachments({
   };
 
   if (compact) {
+    const thumb = size === "lg" ? "aspect-square w-full" : "h-12 w-12";
     return (
       <>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={size === "lg" ? "grid grid-cols-3 gap-2 sm:grid-cols-4" : "flex flex-wrap items-center gap-2"}>
           {urls.map((url) =>
             IMAGE_EXT.test(url) ? (
               <button
                 key={url}
                 type="button"
-                className="h-12 w-12 overflow-hidden rounded-md border border-border"
+                className={`${thumb} overflow-hidden rounded-md border border-border`}
                 onClick={() => setPreview(url)}
                 title={fileName(url)}
               >
@@ -81,11 +84,19 @@ export function TicketAttachments({
               </a>
             )
           )}
-          <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={downloadAll}>
-            <Download className="mr-1 h-3.5 w-3.5" />
-            All
-          </Button>
+          {size !== "lg" ? (
+            <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={downloadAll}>
+              <Download className="mr-1 h-3.5 w-3.5" />
+              All
+            </Button>
+          ) : null}
         </div>
+        {size === "lg" ? (
+          <Button type="button" size="sm" variant="ghost" className="mt-2 h-8 px-2 text-xs" onClick={downloadAll}>
+            <Download className="mr-1 h-3.5 w-3.5" />
+            Download all
+          </Button>
+        ) : null}
         <Dialog open={!!preview} onOpenChange={(open) => !open && setPreview(null)}>
           <DialogContent className="max-w-3xl p-2">
             <DialogTitle className="sr-only">Attachment preview</DialogTitle>
