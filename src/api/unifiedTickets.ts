@@ -108,7 +108,7 @@ export async function getUnifiedTicket(id: number): Promise<AdminUnifiedTicket> 
 
 export async function updateUnifiedTicket(
   id: number,
-  body: { action?: string; admin_notes?: string | null }
+  body: { action?: string; amount?: number; admin_notes?: string | null; note?: string | null }
 ): Promise<AdminUnifiedTicket> {
   const json = await adminFetch<ApiSuccess<AdminUnifiedTicket>>(`/api/admin/unified-ticket/${id}`, {
     method: "PATCH",

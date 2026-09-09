@@ -314,7 +314,7 @@ const SupportTicketDetailPage = () => {
   };
 
   const runCounter = async () => {
-    if (kind === "dispute") {
+    if (kind === "dispute" || kind === "general") {
       setConfirm(null);
       setCounterPromptKey((value) => value + 1);
       toast({ title: "Write the counteroffer", description: "The reply box is ready for your counteroffer." });
@@ -336,6 +336,11 @@ const SupportTicketDetailPage = () => {
             status: DAMAGE_TICKET_STATUS.AMOUNT_SET,
             admin_notes: notesDraft || null,
           },
+        });
+      } else if (kind === "claim") {
+        await updateUnified.mutateAsync({
+          id,
+          body: { action: "counter", amount, admin_notes: notesDraft || null },
         });
       } else {
         await updateExtras.mutateAsync({
@@ -586,6 +591,18 @@ const SupportTicketDetailPage = () => {
                     disabled={busy}
                   />
                 </div>
+              ) : kind === "claim" && isOpen ? (
+                <div>
+                  <Label className="mb-1.5 text-xs text-muted-foreground">Counter amount</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={amountDraft}
+                    onChange={(e) => setAmountDraft(e.target.value)}
+                    disabled={busy}
+                  />
+                </div>
               ) : (
                 <Field
                   label="Amount"
@@ -625,7 +642,7 @@ const SupportTicketDetailPage = () => {
                     <Button
                       className="w-full"
                       variant="outline"
-                      disabled={busy || (kind !== "dispute" && !(parseFloat(amountDraft) >= 0))}
+                      disabled={busy || (kind !== "dispute" && kind !== "general" && !(parseFloat(amountDraft) >= 0))}
                       onClick={() => setConfirm("counter")}
                     >
                       Counter
@@ -666,9 +683,9 @@ const SupportTicketDetailPage = () => {
                 : confirm === "deny"
                   ? "Deny this ticket?"
                   : confirm === "counter"
-                    ? kind === "dispute"
+                    ? kind === "dispute" || kind === "general"
                       ? "Write a counteroffer?"
-                      : `Counter with ${money(parseFloat(amountDraft) || 0)}?`
+                      : "Send a counteroffer?"
                     : confirm === "waive"
                       ? "Waive this ticket?"
                       : kind === "damage" || kind === "extras"
@@ -680,11 +697,28 @@ const SupportTicketDetailPage = () => {
                 ? `${ticketRef(id)} will be removed from the inbox. This is a soft delete.`
                 : confirm === "approve" && (kind === "damage" || kind === "extras")
                   ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ${ticketRef(id)}.`
-                  : confirm === "counter" && kind === "dispute"
+                  : confirm === "counter" && (kind === "dispute" || kind === "general")
                     ? "This will move focus to the conversation so you can send the counteroffer."
                     : `This will update ${ticketRef(id)}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {confirm === "counter" && kind !== "dispute" && kind !== "general" ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="counter-amount" className="text-xs text-muted-foreground">
+                Counter amount
+              </Label>
+              <Input
+                id="counter-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={amountDraft}
+                onChange={(e) => setAmountDraft(e.target.value)}
+                disabled={busy}
+                autoFocus
+              />
+            </div>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
