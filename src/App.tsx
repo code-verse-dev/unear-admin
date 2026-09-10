@@ -50,9 +50,9 @@ const App = () => {
               <Route path="/claims" element={<Navigate to="/support-tickets?type=claim" replace />} />
               <Route path="/support-tickets" element={<SupportTicketsPage />} />
               <Route path="/support-tickets/:kind/:id" element={<SupportTicketDetailPage />} />
-              <Route path="/damage-tickets" element={<Navigate to="/support-tickets?type=damage" replace />} />
+              <Route path="/damage-tickets" element={<Navigate to="/support-tickets?type=claim" replace />} />
               <Route path="/trip-extras" element={<Navigate to="/support-tickets?type=extras" replace />} />
-              <Route path="/disputes" element={<Navigate to="/support-tickets?type=dispute" replace />} />
+              <Route path="/disputes" element={<Navigate to="/support-tickets?type=claim" replace />} />
               <Route path="/transactions" element={<TransactionsPage />} />
               <Route path="/inspections" element={<Navigate to="/" replace />} />
               <Route path="/reviews" element={<ReviewsPage />} />

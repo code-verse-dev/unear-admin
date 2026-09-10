@@ -38,18 +38,14 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { useDisputeRequestsListQuery } from "@/hooks/useAdminDisputeRequests";
-import { useDamageTicketsListQuery } from "@/hooks/useAdminDamageTickets";
 import { useBookingInvoicesListQuery } from "@/hooks/useAdminBookingInvoices";
 import { useDeleteSupportTicketMutation } from "@/hooks/useSupportTicketChat";
 import {
   SUPPORT_PAGE_SIZE,
   exportTicketsCsv,
-  isDisputeKind,
+  isClaimKind,
   kindChipClass,
   kindLabel,
-  rowFromDamage,
-  rowFromDispute,
   rowFromExtras,
   rowFromUnified,
   ticketMatchesSearch,
@@ -93,9 +89,9 @@ const SupportTicketsPage = () => {
   const [page, setPage] = useState(1);
   const typeFromUrl = searchParams.get("type");
   const [typeFilter, setTypeFilter] = useState<string>(
-    typeFromUrl === "claim" || typeFromUrl === "dispute"
-      ? "dispute"
-      : typeFromUrl === "damage" || typeFromUrl === "extras" || typeFromUrl === "general"
+    typeFromUrl === "claim" || typeFromUrl === "dispute" || typeFromUrl === "damage"
+      ? "claim"
+      : typeFromUrl === "extras" || typeFromUrl === "general"
         ? typeFromUrl
         : "all"
   );
@@ -124,36 +120,22 @@ const SupportTicketsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typeFilter]);
 
-  const disputesQ = useDisputeRequestsListQuery({
-    page: 1,
-    limit: 100,
-    orderBy: "id",
-    order: "DESC",
-  });
-  const damageQ = useDamageTicketsListQuery({
-    page: 1,
-    limit: 100,
-    orderBy: "id",
-    order: "DESC",
-  });
   const extrasQ = useBookingInvoicesListQuery({ status: "all" });
   const unifiedQ = useUnifiedTicketsListQuery();
 
-  const isLoading = disputesQ.isLoading || damageQ.isLoading || extrasQ.isLoading || unifiedQ.isLoading;
-  const isFetching = disputesQ.isFetching || damageQ.isFetching || extrasQ.isFetching || unifiedQ.isFetching;
+  const isLoading = extrasQ.isLoading || unifiedQ.isLoading;
+  const isFetching = extrasQ.isFetching || unifiedQ.isFetching;
 
   const allRows = useMemo(() => {
     return [
-      ...(disputesQ.data?.rows ?? []).map(rowFromDispute),
-      ...(damageQ.data?.rows ?? []).map(rowFromDamage),
       ...(extrasQ.data ?? []).map(rowFromExtras),
       ...(unifiedQ.data ?? []).map(rowFromUnified),
     ];
-  }, [disputesQ.data, damageQ.data, extrasQ.data, unifiedQ.data]);
+  }, [extrasQ.data, unifiedQ.data]);
 
   const rows = useMemo(() => {
     let list = allRows;
-    if (typeFilter === "dispute") list = list.filter((r) => isDisputeKind(r.kind));
+    if (typeFilter === "claim") list = list.filter((r) => isClaimKind(r.kind));
     else if (typeFilter !== "all") list = list.filter((r) => r.kind === typeFilter);
     if (statusFilter === "open") list = list.filter((r) => r.isOpen);
     if (statusFilter === "closed") list = list.filter((r) => !r.isOpen);
@@ -175,8 +157,7 @@ const SupportTicketsPage = () => {
     return {
       open,
       closed: allRows.length - open,
-      dispute: allRows.filter((r) => isDisputeKind(r.kind)).length,
-      damage: allRows.filter((r) => r.kind === "damage").length,
+      claim: allRows.filter((r) => isClaimKind(r.kind)).length,
       extras: allRows.filter((r) => r.kind === "extras").length,
       general: allRows.filter((r) => r.kind === "general").length,
     };
@@ -344,15 +325,13 @@ const SupportTicketsPage = () => {
     <PageContainer
       fullWidth
       title="Support Tickets"
-      subtitle="One inbox for claims, general help, disputes, damage, and trip extras"
+      subtitle="One inbox for claims, general help, and trip extras"
       actions={
         <>
           <Button
             variant="outline"
             size="sm"
             onClick={() => {
-              void disputesQ.refetch();
-              void damageQ.refetch();
               void extrasQ.refetch();
               void unifiedQ.refetch();
             }}
@@ -371,8 +350,8 @@ const SupportTicketsPage = () => {
       <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Open" value={stats.open} icon={Headset} variant="warning" />
         <MetricCard title="Closed" value={stats.closed} icon={Scale} variant="success" />
-        <button type="button" className="text-left" onClick={() => setTypeFilter("dispute")}>
-          <MetricCard title="Disputes" value={stats.dispute} icon={AlertTriangle} variant="destructive" />
+        <button type="button" className="text-left" onClick={() => setTypeFilter("claim")}>
+          <MetricCard title="Claims" value={stats.claim} icon={AlertTriangle} variant="destructive" />
         </button>
         <button type="button" className="text-left" onClick={() => setTypeFilter("general")}>
           <MetricCard title="General" value={stats.general} icon={Headset} variant="info" />
@@ -383,9 +362,8 @@ const SupportTicketsPage = () => {
         {(
           [
             ["all", "All"],
-            ["dispute", "Dispute"],
+            ["claim", "Claims"],
             ["general", "General"],
-            ["damage", "Damage"],
             ["extras", "Trip extras"],
           ] as const
         ).map(([value, label]) => (
@@ -400,13 +378,11 @@ const SupportTicketsPage = () => {
             <span className="ml-1.5 tabular-nums opacity-70">
               {value === "all"
                 ? allRows.length
-                : value === "dispute"
-                  ? stats.dispute
-                  : value === "damage"
-                    ? stats.damage
-                    : value === "general"
-                      ? stats.general
-                      : stats.extras}
+                : value === "claim"
+                  ? stats.claim
+                  : value === "general"
+                    ? stats.general
+                    : stats.extras}
             </span>
           </Button>
         ))}

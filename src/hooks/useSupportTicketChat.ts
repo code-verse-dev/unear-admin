@@ -9,8 +9,6 @@ import {
   type SupportTicketKind,
   type SupportTicketMessage,
 } from "@/api/supportTicketChat";
-import { damageTicketsQueryKeyRoot, damageTicketDetailQueryKey } from "@/api/damageTickets";
-import { disputeRequestsQueryKeyRoot, disputeRequestDetailQueryKey } from "@/api/disputeRequests";
 import { bookingInvoicesQueryKeyRoot, bookingInvoiceDetailQueryKey } from "@/api/bookingInvoices";
 import { unifiedTicketDetailQueryKey, unifiedTicketsQueryKeyRoot } from "@/api/unifiedTickets";
 
@@ -55,14 +53,6 @@ export function useSendSupportTicketMessageMutation() {
         };
       });
       void qc.invalidateQueries({ queryKey: key });
-      if (kind === "damage") {
-        qc.invalidateQueries({ queryKey: damageTicketDetailQueryKey(id) });
-        qc.invalidateQueries({ queryKey: damageTicketsQueryKeyRoot });
-      }
-      if (kind === "dispute") {
-        qc.invalidateQueries({ queryKey: disputeRequestDetailQueryKey(id) });
-        qc.invalidateQueries({ queryKey: disputeRequestsQueryKeyRoot });
-      }
       if (kind === "extras") {
         qc.invalidateQueries({ queryKey: bookingInvoiceDetailQueryKey(id) });
         qc.invalidateQueries({ queryKey: bookingInvoicesQueryKeyRoot });
@@ -82,14 +72,6 @@ export function useDeleteSupportTicketMutation() {
       deleteSupportTicket(kind, id),
     onSuccess: (_data, { kind, id }) => {
       qc.invalidateQueries({ queryKey: supportTicketMessagesQueryKeyRoot });
-      if (kind === "damage") {
-        qc.removeQueries({ queryKey: damageTicketDetailQueryKey(id) });
-        qc.invalidateQueries({ queryKey: damageTicketsQueryKeyRoot });
-      }
-      if (kind === "dispute") {
-        qc.removeQueries({ queryKey: disputeRequestDetailQueryKey(id) });
-        qc.invalidateQueries({ queryKey: disputeRequestsQueryKeyRoot });
-      }
       if (kind === "extras") {
         qc.removeQueries({ queryKey: bookingInvoiceDetailQueryKey(id) });
         qc.invalidateQueries({ queryKey: bookingInvoicesQueryKeyRoot });

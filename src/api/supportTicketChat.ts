@@ -1,10 +1,21 @@
 import { adminFetch, type ApiSuccess } from "@/lib/admin-api";
-import type { DamageTicketMessage } from "@/api/damageTickets";
 
-export type SupportTicketKind = "dispute" | "damage" | "extras" | "claim" | "general";
+export type SupportTicketKind = "extras" | "claim" | "general";
 export type SupportChatRoom = "user" | "host" | "guest";
 
-export type SupportTicketMessage = DamageTicketMessage;
+export type SupportTicketMessage = {
+  chat_room_id: number;
+  message_id: number;
+  message_type: string;
+  message: string;
+  file_url?: string | string[] | null;
+  file_name?: string | null;
+  user_id: number;
+  user_name?: string;
+  user_image?: string | string[] | null;
+  user_type?: string | null;
+  message_timestamp: string;
+};
 
 export type SupportTicketMessagesResult = {
   kind: SupportTicketKind;
@@ -14,6 +25,20 @@ export type SupportTicketMessagesResult = {
   pagination: { page: number; limit: number; total: number };
   messages: SupportTicketMessage[];
 };
+
+function messagesUrl(kind: SupportTicketKind, id: number, query = "") {
+  if (kind === "claim" || kind === "general") {
+    return `/api/admin/unified-ticket/${id}/messages${query}`;
+  }
+  return `/api/admin/support-ticket/extras/${id}/messages${query}`;
+}
+
+function deleteUrl(kind: SupportTicketKind, id: number) {
+  if (kind === "claim" || kind === "general") {
+    return `/api/admin/unified-ticket/${id}`;
+  }
+  return `/api/admin/support-ticket/extras/${id}`;
+}
 
 export async function getSupportTicketMessages(
   kind: SupportTicketKind,
@@ -28,7 +53,7 @@ export async function getSupportTicketMessages(
     limit: String(limit),
   });
   const json = await adminFetch<ApiSuccess<SupportTicketMessagesResult>>(
-    `/api/admin/support-ticket/${kind}/${id}/messages?${sp.toString()}`,
+    messagesUrl(kind, id, `?${sp.toString()}`),
     { method: "GET", auth: true }
   );
   return json.data;
@@ -40,17 +65,17 @@ export async function sendSupportTicketMessage(
   body: { room: SupportChatRoom; message: string }
 ): Promise<SupportTicketMessage> {
   const json = await adminFetch<ApiSuccess<SupportTicketMessage>>(
-    `/api/admin/support-ticket/${kind}/${id}/messages`,
+    messagesUrl(kind, id),
     { method: "POST", body: JSON.stringify(body), auth: true }
   );
   return json.data;
 }
 
 export async function deleteSupportTicket(kind: SupportTicketKind, id: number): Promise<void> {
-  await adminFetch<ApiSuccess<{ kind: SupportTicketKind; id: number }>>(
-    `/api/admin/support-ticket/${kind}/${id}`,
-    { method: "DELETE", auth: true }
-  );
+  await adminFetch<ApiSuccess<{ kind: SupportTicketKind; id: number }>>(deleteUrl(kind, id), {
+    method: "DELETE",
+    auth: true,
+  });
 }
 
 export const supportTicketMessagesQueryKeyRoot = ["admin", "support-ticket-messages"] as const;

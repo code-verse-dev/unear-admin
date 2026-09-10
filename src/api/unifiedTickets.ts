@@ -33,6 +33,24 @@ export type UnifiedTicketTimelineItem = {
   cardLabel?: string;
   cardStatus?: string;
   cardStatusTone?: string;
+  cardKind?: string;
+  fields?: { label: string; value: string }[];
+  offer_status?: string;
+  offer_event_id?: number;
+  can_approve_offer?: boolean;
+  can_reject_offer?: boolean;
+  current_amount?: number | null;
+};
+
+export type UnifiedTicketPendingCounter = {
+  event_id: number;
+  amount: number | null;
+  previous_amount?: number | null;
+  status?: string;
+  actor_role?: string;
+  actor_user_id?: number | null;
+  note?: string | null;
+  created_at?: string;
 };
 
 export type AdminUnifiedTicket = {
@@ -75,7 +93,15 @@ export type AdminUnifiedTicket = {
     description?: string;
     attachments?: unknown;
     status?: number;
+    can_counter?: boolean;
+    pending_counter?: UnifiedTicketPendingCounter | null;
   } | null;
+  pending_counter?: UnifiedTicketPendingCounter | null;
+  can_approve?: boolean;
+  can_waive?: boolean;
+  can_counter?: boolean;
+  can_approve_counter?: boolean;
+  can_reject_counter?: boolean;
   timeline?: UnifiedTicketTimelineItem[];
   createdAt: string;
   updatedAt: string;
@@ -108,7 +134,14 @@ export async function getUnifiedTicket(id: number): Promise<AdminUnifiedTicket> 
 
 export async function updateUnifiedTicket(
   id: number,
-  body: { action?: string; amount?: number; admin_notes?: string | null; note?: string | null }
+  body: {
+    action?: string;
+    amount?: number;
+    admin_notes?: string | null;
+    note?: string | null;
+    event_id?: number;
+    offer_event_id?: number;
+  }
 ): Promise<AdminUnifiedTicket> {
   const json = await adminFetch<ApiSuccess<AdminUnifiedTicket>>(`/api/admin/unified-ticket/${id}`, {
     method: "PATCH",
