@@ -32,7 +32,14 @@ export function useUpdateUnifiedTicketMutation() {
       body,
     }: {
       id: number;
-      body: { action?: string; amount?: number; admin_notes?: string | null; note?: string | null };
+      body: {
+        action?: string;
+        amount?: number;
+        admin_notes?: string | null;
+        note?: string | null;
+        event_id?: number;
+        offer_event_id?: number;
+      };
     }) => updateUnifiedTicket(id, body),
     onSuccess: (data, { id }) => {
       qc.setQueryData(unifiedTicketDetailQueryKey(id), data);

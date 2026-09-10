@@ -41,6 +41,8 @@ export function TicketChat({
   source = "Via app",
   tag,
   counterPromptKey = 0,
+  onReviewOffer,
+  offerBusy = false,
 }: {
   kind: SupportTicketKind;
   id: number;
@@ -51,6 +53,8 @@ export function TicketChat({
   source?: string;
   tag?: string;
   counterPromptKey?: number;
+  onReviewOffer?: (eventId: number, action: "approve" | "reject") => void;
+  offerBusy?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -136,7 +140,7 @@ export function TicketChat({
           </div>
         ) : (
           <>
-            <TicketTimeline items={timeline} />
+            <TicketTimeline items={timeline} onReviewOffer={onReviewOffer} offerBusy={offerBusy} />
             <div ref={bottomRef} />
           </>
         )}

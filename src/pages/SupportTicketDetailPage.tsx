@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, Loader2, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,25 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { TicketChat } from "@/components/support/TicketChat";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { DISPUTE_REQUEST_STATUS } from "@/api/disputeRequests";
-import { DAMAGE_TICKET_STATUS } from "@/api/damageTickets";
 import { extrasIsOpen, extrasStatusLabel, extrasStatusVariant } from "@/api/bookingInvoices";
 import type { SupportChatRoom, SupportTicketKind } from "@/api/supportTicketChat";
-import {
-  damageStatusLabel,
-  damageStatusVariant,
-  disputeStatusLabel,
-  disputeStatusVariant,
-  kindLabel,
-  partyName,
-  ticketRef,
-} from "@/lib/supportTickets";
-import { useDisputeRequestDetailQuery, useUpdateDisputeRequestMutation } from "@/hooks/useAdminDisputeRequests";
-import {
-  useChargeDamageTicketMutation,
-  useDamageTicketDetailQuery,
-  useUpdateDamageTicketMutation,
-} from "@/hooks/useAdminDamageTickets";
+import { kindLabel, partyName, ticketRef } from "@/lib/supportTickets";
 import { useBookingInvoiceDetailQuery, useUpdateBookingInvoiceMutation } from "@/hooks/useAdminBookingInvoices";
 import { useDeleteSupportTicketMutation } from "@/hooks/useSupportTicketChat";
 import { useUnifiedTicketDetailQuery, useUpdateUnifiedTicketMutation } from "@/hooks/useAdminUnifiedTickets";
@@ -46,7 +30,7 @@ import {
 const money = (n: number | null | undefined) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n) || 0);
 
-const KINDS: SupportTicketKind[] = ["dispute", "damage", "extras", "claim", "general"];
+const KINDS: SupportTicketKind[] = ["extras", "claim", "general"];
 
 function Field({ label, value, extra }: { label: string; value: string; extra?: ReactNode }) {
   return (
@@ -64,37 +48,30 @@ const SupportTicketDetailPage = () => {
   const { kind: kindParam, id: idParam } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const kind = (kindParam || "") as SupportTicketKind;
   const id = Number(idParam);
-  const valid = KINDS.includes(kind) && id > 0;
+  const isLegacyKind = kindParam === "damage" || kindParam === "dispute";
+  const kind = (isLegacyKind ? "claim" : kindParam || "") as SupportTicketKind;
+  const valid = !isLegacyKind && KINDS.includes(kind) && id > 0;
 
-  const disputeQ = useDisputeRequestDetailQuery(id, valid && kind === "dispute");
-  const damageQ = useDamageTicketDetailQuery(id, valid && kind === "damage");
   const extrasQ = useBookingInvoiceDetailQuery(id, valid && kind === "extras");
   const unifiedQ = useUnifiedTicketDetailQuery(id, valid && (kind === "claim" || kind === "general"));
 
-  const updateDispute = useUpdateDisputeRequestMutation();
-  const updateDamage = useUpdateDamageTicketMutation();
-  const chargeDamage = useChargeDamageTicketMutation();
   const updateExtras = useUpdateBookingInvoiceMutation();
   const updateUnified = useUpdateUnifiedTicketMutation();
   const deleteMut = useDeleteSupportTicketMutation();
 
   const [amountDraft, setAmountDraft] = useState("");
   const [notesDraft, setNotesDraft] = useState("");
-  const [confirm, setConfirm] = useState<"approve" | "deny" | "counter" | "waive" | "delete" | null>(null);
+  const [confirm, setConfirm] = useState<
+    "approve" | "deny" | "counter" | "waive" | "delete" | "approve_offer" | "reject_offer" | null
+  >(null);
   const [counterPromptKey, setCounterPromptKey] = useState(0);
+  const [offerEventId, setOfferEventId] = useState<number | null>(null);
 
-  const dispute = disputeQ.data;
-  const damage = damageQ.data;
   const extras = extrasQ.data;
   const unified = unifiedQ.data;
 
   useEffect(() => {
-    if (kind === "damage" && damage) {
-      setAmountDraft(String(damage.final_amount ?? damage.proposed_amount ?? ""));
-      setNotesDraft(damage.admin_notes || "");
-    }
     if (kind === "extras" && extras) {
       setAmountDraft(String(extras.total_amount ?? ""));
       setNotesDraft(extras.dispute_note || extras.note || "");
@@ -103,55 +80,41 @@ const SupportTicketDetailPage = () => {
       setAmountDraft(String(unified.amount ?? unified.claim?.amount ?? ""));
       setNotesDraft(unified.admin_notes || "");
     }
-  }, [kind, damage, extras, unified]);
+  }, [kind, extras, unified]);
 
   const loading =
-    (kind === "dispute" && disputeQ.isLoading) ||
-    (kind === "damage" && damageQ.isLoading) ||
     (kind === "extras" && extrasQ.isLoading) ||
     ((kind === "claim" || kind === "general") && unifiedQ.isLoading);
 
   const error =
-    (kind === "dispute" && disputeQ.error) ||
-    (kind === "damage" && damageQ.error) ||
     (kind === "extras" && extrasQ.error) ||
     ((kind === "claim" || kind === "general") && unifiedQ.error);
 
   const statusLabel = useMemo(() => {
-    if (kind === "dispute" && dispute) return disputeStatusLabel(dispute.status);
-    if (kind === "damage" && damage) return damageStatusLabel(damage.status);
     if (kind === "extras" && extras) return extrasStatusLabel(extras.status);
     if ((kind === "claim" || kind === "general") && unified) return unified.status_label || "—";
     return "—";
-  }, [kind, dispute, damage, extras, unified]);
+  }, [kind, extras, unified]);
 
   const statusVariant = useMemo(() => {
-    if (kind === "dispute" && dispute) return disputeStatusVariant(dispute.status);
-    if (kind === "damage" && damage) return damageStatusVariant(damage.status);
     if (kind === "extras" && extras) return extrasStatusVariant(extras.status);
     if ((kind === "claim" || kind === "general") && unified) {
       return unified.is_open ? "warning" : unified.status === UNIFIED_TICKET_STATUS.CANCELLED ? "destructive" : "success";
     }
     return "secondary" as const;
-  }, [kind, dispute, damage, extras, unified]);
+  }, [kind, extras, unified]);
 
   const isOpen =
-    (kind === "dispute" && dispute?.status === DISPUTE_REQUEST_STATUS.REQUESTED) ||
-    (kind === "damage" &&
-      damage &&
-      damage.status !== DAMAGE_TICKET_STATUS.CHARGED &&
-      damage.status !== DAMAGE_TICKET_STATUS.CANCELLED) ||
     (kind === "extras" && extras && extrasIsOpen(extras.status)) ||
     ((kind === "claim" || kind === "general") && !!unified?.is_open);
 
   const chatDisabled =
-    (kind === "damage" && damage?.status === DAMAGE_TICKET_STATUS.CANCELLED) ||
-    ((kind === "claim" || kind === "general") &&
-      unified &&
-      (unified.status === UNIFIED_TICKET_STATUS.CANCELLED || unified.status === UNIFIED_TICKET_STATUS.RESOLVED));
+    (kind === "claim" || kind === "general") &&
+    unified &&
+    (unified.status === UNIFIED_TICKET_STATUS.CANCELLED || unified.status === UNIFIED_TICKET_STATUS.RESOLVED);
 
   const rooms: { id: SupportChatRoom; label: string }[] =
-    kind === "dispute" || kind === "general"
+    kind === "general"
       ? [{ id: "user", label: "User" }]
       : kind === "claim"
         ? [
@@ -165,30 +128,6 @@ const SupportTicketDetailPage = () => {
           ];
 
   const headerUser = (() => {
-    if (kind === "dispute" && dispute) {
-      return {
-        name: dispute.full_name || partyName(dispute.user, `User #${dispute.user_id}`),
-        subtitle: dispute.category || kindLabel(kind),
-        email: dispute.email,
-        phone: dispute.phone_number,
-        meta: [dispute.car_model_year, dispute.email].filter(Boolean).join(" · "),
-      };
-    }
-    if (kind === "damage" && damage) {
-      const guest = partyName(damage.guest, `Guest #${damage.guest_id}`);
-      const vehicle = damage.booking?.vehicle
-        ? [damage.booking.vehicle.year, damage.booking.vehicle.make, damage.booking.vehicle.model]
-            .filter(Boolean)
-            .join(" ")
-        : `Booking #${damage.booking_id}`;
-      return {
-        name: guest,
-        subtitle: `Host ${partyName(damage.host, `#${damage.host_id}`)}`,
-        email: damage.guest?.email,
-        phone: damage.guest?.mobile_no || undefined,
-        meta: vehicle,
-      };
-    }
     if (kind === "extras" && extras) {
       return {
         name: `Guest #${extras.guest_id}`,
@@ -223,34 +162,20 @@ const SupportTicketDetailPage = () => {
   })();
 
   const subject =
-    kind === "dispute" && dispute
-      ? dispute.category
-      : kind === "damage" && damage
-        ? damage.damage_description?.trim() || `Booking #${damage.booking_id}`
-        : kind === "claim" || kind === "general"
-          ? unified?.title || kindLabel(kind)
-          : extras?.items?.[0]?.title || kindLabel(kind);
+    kind === "claim" || kind === "general"
+      ? unified?.title || kindLabel(kind)
+      : extras?.items?.[0]?.title || kindLabel(kind);
 
   const tabTitle = `${ticketRef(id)} · ${kindLabel(kind)}`;
 
   const timelineEvents = useMemo(
-    () => buildSupportTicketEvents({ kind, dispute, damage, extras, unified }),
-    [kind, dispute, damage, extras, unified]
+    () => buildSupportTicketEvents({ kind, extras, unified }),
+    [kind, extras, unified]
   );
 
   const runResolve = async () => {
     try {
-      if (kind === "dispute") {
-        await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.COMPLETED } });
-        toast({ title: "Ticket approved", description: ticketRef(id) });
-      } else if (kind === "damage") {
-        const amount = parseFloat(amountDraft) || Number(damage?.final_amount) || 0;
-        await chargeDamage.mutateAsync({
-          id,
-          body: { final_amount: amount, admin_notes: notesDraft || null },
-        });
-        toast({ title: "Ticket approved and guest charged", description: ticketRef(id) });
-      } else if (kind === "extras") {
+      if (kind === "extras") {
         const amount = parseFloat(amountDraft);
         const current = Number(extras?.total_amount) || 0;
         if (!Number.isNaN(amount) && Math.abs(amount - current) > 0.001) {
@@ -265,7 +190,16 @@ const SupportTicketDetailPage = () => {
           });
         }
         toast({ title: "Ticket approved", description: ticketRef(id) });
-      } else if (kind === "claim" || kind === "general") {
+      } else if (kind === "claim") {
+        await updateUnified.mutateAsync({
+          id,
+          body: { action: "approve", admin_notes: notesDraft || null },
+        });
+        toast({
+          title: "Amount approved",
+          description: `${money(unified?.amount ?? unified?.claim?.amount)} is now payable. The ticket stays open until it is paid.`,
+        });
+      } else if (kind === "general") {
         await updateUnified.mutateAsync({
           id,
           body: { action: "resolve", admin_notes: notesDraft || null },
@@ -284,14 +218,7 @@ const SupportTicketDetailPage = () => {
 
   const runReject = async () => {
     try {
-      if (kind === "dispute") {
-        await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.CANCELLED } });
-      } else if (kind === "damage") {
-        await updateDamage.mutateAsync({
-          id,
-          body: { status: DAMAGE_TICKET_STATUS.CANCELLED, admin_notes: notesDraft || null },
-        });
-      } else if (kind === "extras") {
+      if (kind === "extras") {
         await updateExtras.mutateAsync({
           id,
           body: { action: "deny", note: notesDraft || null },
@@ -314,7 +241,7 @@ const SupportTicketDetailPage = () => {
   };
 
   const runCounter = async () => {
-    if (kind === "dispute" || kind === "general") {
+    if (kind === "general") {
       setConfirm(null);
       setCounterPromptKey((value) => value + 1);
       toast({ title: "Write the counteroffer", description: "The reply box is ready for your counteroffer." });
@@ -328,16 +255,7 @@ const SupportTicketDetailPage = () => {
     }
 
     try {
-      if (kind === "damage") {
-        await updateDamage.mutateAsync({
-          id,
-          body: {
-            final_amount: amount,
-            status: DAMAGE_TICKET_STATUS.AMOUNT_SET,
-            admin_notes: notesDraft || null,
-          },
-        });
-      } else if (kind === "claim") {
+      if (kind === "claim") {
         await updateUnified.mutateAsync({
           id,
           body: { action: "counter", amount, admin_notes: notesDraft || null },
@@ -361,14 +279,7 @@ const SupportTicketDetailPage = () => {
 
   const runWaive = async () => {
     try {
-      if (kind === "dispute") {
-        await updateDispute.mutateAsync({ id, body: { status: DISPUTE_REQUEST_STATUS.CANCELLED } });
-      } else if (kind === "damage") {
-        await updateDamage.mutateAsync({
-          id,
-          body: { status: DAMAGE_TICKET_STATUS.CANCELLED, admin_notes: notesDraft || null },
-        });
-      } else if (kind === "claim" || kind === "general") {
+      if (kind === "claim" || kind === "general") {
         await updateUnified.mutateAsync({
           id,
           body: { action: "cancel", admin_notes: notesDraft || null },
@@ -390,6 +301,36 @@ const SupportTicketDetailPage = () => {
     }
   };
 
+  const runReviewOffer = async () => {
+    if (offerEventId == null) return;
+    const action = confirm === "reject_offer" ? "reject_counter" : "approve_counter";
+    try {
+      await updateUnified.mutateAsync({
+        id,
+        body: {
+          action,
+          event_id: offerEventId,
+          admin_notes: notesDraft || null,
+        },
+      });
+      setConfirm(null);
+      setOfferEventId(null);
+      toast({
+        title: action === "approve_counter" ? "Counter offer approved" : "Counter offer rejected",
+        description:
+          action === "approve_counter"
+            ? "The current amount was updated. Approve the ticket when you are ready to make it payable."
+            : "The current amount was left unchanged.",
+      });
+    } catch (e) {
+      toast({
+        title: "Could not review the offer",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
+    }
+  };
+
   const runDelete = async () => {
     try {
       await deleteMut.mutateAsync({ kind, id });
@@ -405,12 +346,9 @@ const SupportTicketDetailPage = () => {
     }
   };
 
-  const busy =
-    updateDispute.isPending ||
-    updateDamage.isPending ||
-    chargeDamage.isPending ||
-    updateExtras.isPending ||
-    deleteMut.isPending;
+  const busy = updateExtras.isPending || updateUnified.isPending || deleteMut.isPending;
+  const pendingOffer = kind === "claim" ? unified?.pending_counter : null;
+  const currentAmount = kind === "claim" ? Number(unified?.amount ?? unified?.claim?.amount ?? 0) : null;
 
   const openDot =
     statusVariant === "success"
@@ -420,6 +358,10 @@ const SupportTicketDetailPage = () => {
         : statusVariant === "warning"
           ? "bg-amber-500"
           : "bg-emerald-500";
+
+  if (isLegacyKind) {
+    return <Navigate to="/support-tickets?type=claim" replace />;
+  }
 
   if (!valid) {
     return (
@@ -497,55 +439,6 @@ const SupportTicketDetailPage = () => {
 
           <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)]">
             <aside className="min-h-0 space-y-4 overflow-y-auto border-r border-border bg-background p-5">
-              {kind === "damage" && damage ? (
-                <>
-                  <Field label="Ticket" value={ticketRef(id)} />
-                  <Field
-                    label="Car"
-                    value={
-                      damage.booking?.vehicle
-                        ? [damage.booking.vehicle.year, damage.booking.vehicle.make, damage.booking.vehicle.model]
-                            .filter(Boolean)
-                            .join(" ") || "—"
-                        : "—"
-                    }
-                  />
-                  <Field label="Plate" value={damage.booking?.vehicle?.license_plate_number || "—"} />
-                  <Field label="Booking" value={`#${damage.booking_id}`} />
-                  <Field label="Host" value={partyName(damage.host, `#${damage.host_id}`)} />
-                  <Field label="Guest" value={partyName(damage.guest, `#${damage.guest_id}`)} />
-                  <Field label="Proposed" value={money(damage.proposed_amount)} />
-                  {isOpen ? (
-                    <div>
-                      <Label className="mb-1.5 text-xs text-muted-foreground">Charge amount</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={amountDraft}
-                        onChange={(e) => setAmountDraft(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-                  ) : (
-                    <Field label="Charge amount" value={money(damage.final_amount ?? damage.proposed_amount)} />
-                  )}
-                  {isOpen ? (
-                    <div>
-                      <Label className="mb-1.5 text-xs text-muted-foreground">Admin notes</Label>
-                      <Textarea
-                        rows={3}
-                        value={notesDraft}
-                        onChange={(e) => setNotesDraft(e.target.value)}
-                        disabled={busy}
-                      />
-                    </div>
-                  ) : damage.admin_notes ? (
-                    <Field label="Admin notes" value={damage.admin_notes} />
-                  ) : null}
-                </>
-              ) : (
-                <>
               <Field label="Ticket" value={ticketRef(id)} />
               <Field label="Requester" value={headerUser.name} />
               <Field label="Type" value={kindLabel(kind)} />
@@ -553,15 +446,15 @@ const SupportTicketDetailPage = () => {
                 <Field label="Host" value={partyName(unified.host, unified.host_id ? `#${unified.host_id}` : "—")} />
               ) : null}
               {kind === "extras" && extras ? <Field label="Host" value={`#${extras.host_id}`} /> : null}
-              {kind !== "dispute" && kind !== "general" ? (
+              {kind !== "general" ? (
                 <Field
                   label="Guest"
                   value={
                     kind === "claim" && unified
-                        ? partyName(unified.guest, unified.guest_id ? `#${unified.guest_id}` : "—")
-                        : extras
-                          ? `#${extras.guest_id}`
-                          : "—"
+                      ? partyName(unified.guest, unified.guest_id ? `#${unified.guest_id}` : "—")
+                      : extras
+                        ? `#${extras.guest_id}`
+                        : "—"
                   }
                 />
               ) : null}
@@ -569,14 +462,10 @@ const SupportTicketDetailPage = () => {
                 label="Booking"
                 value={
                   kind === "extras" && extras
-                      ? `#${extras.booking_id}`
-                      : kind === "claim" && unified?.booking_id
-                        ? `#${unified.booking_id}`
-                        : kind === "general" && unified?.booking_id
-                          ? `#${unified.booking_id}`
-                          : kind === "dispute" && dispute
-                            ? `Txn ${dispute.transaction_id}`
-                            : "—"
+                    ? `#${extras.booking_id}`
+                    : unified?.booking_id
+                      ? `#${unified.booking_id}`
+                      : "—"
                 }
               />
               {kind === "extras" && isOpen ? (
@@ -592,17 +481,26 @@ const SupportTicketDetailPage = () => {
                   />
                 </div>
               ) : kind === "claim" && isOpen ? (
-                <div>
-                  <Label className="mb-1.5 text-xs text-muted-foreground">Counter amount</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={amountDraft}
-                    onChange={(e) => setAmountDraft(e.target.value)}
-                    disabled={busy}
-                  />
-                </div>
+                <>
+                  <Field label="Current amount" value={money(currentAmount)} />
+                  {pendingOffer ? (
+                    <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+                      {(pendingOffer.actor_role === "host" ? "Host" : pendingOffer.actor_role === "guest" ? "Guest" : "A party")}{" "}
+                      offered {money(pendingOffer.amount)}. Approve or reject it on the timeline before finalizing.
+                    </div>
+                  ) : null}
+                  <div>
+                    <Label className="mb-1.5 text-xs text-muted-foreground">Your counter (sets amount immediately)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={amountDraft}
+                      onChange={(e) => setAmountDraft(e.target.value)}
+                      disabled={busy}
+                    />
+                  </div>
+                </>
               ) : (
                 <Field
                   label="Amount"
@@ -626,13 +524,15 @@ const SupportTicketDetailPage = () => {
                   />
                 </div>
               ) : null}
-                </>
-              )}
 
               <div className="space-y-2 pt-2">
                 {isOpen ? (
                   <>
-                    <Button className="w-full" disabled={busy} onClick={() => setConfirm("approve")}>
+                    <Button
+                      className="w-full"
+                      disabled={busy || (kind === "claim" && !!pendingOffer)}
+                      onClick={() => setConfirm("approve")}
+                    >
                       <Check className="mr-1 h-4 w-4" />
                       Approve
                     </Button>
@@ -642,7 +542,7 @@ const SupportTicketDetailPage = () => {
                     <Button
                       className="w-full"
                       variant="outline"
-                      disabled={busy || (kind !== "dispute" && kind !== "general" && !(parseFloat(amountDraft) >= 0))}
+                      disabled={busy || (kind !== "general" && !(parseFloat(amountDraft) >= 0))}
                       onClick={() => setConfirm("counter")}
                     >
                       Counter
@@ -669,6 +569,11 @@ const SupportTicketDetailPage = () => {
               tag={kindLabel(kind)}
               source="Via app"
               counterPromptKey={counterPromptKey}
+              offerBusy={busy}
+              onReviewOffer={(eventId, action) => {
+                setOfferEventId(eventId);
+                setConfirm(action === "approve" ? "approve_offer" : "reject_offer");
+              }}
             />
           </div>
         </>
@@ -682,27 +587,41 @@ const SupportTicketDetailPage = () => {
                 ? "Delete this ticket?"
                 : confirm === "deny"
                   ? "Deny this ticket?"
-                  : confirm === "counter"
-                    ? kind === "dispute" || kind === "general"
-                      ? "Write a counteroffer?"
-                      : "Send a counteroffer?"
-                    : confirm === "waive"
-                      ? "Waive this ticket?"
-                      : kind === "damage" || kind === "extras"
-                        ? "Approve and charge the guest?"
-                        : "Approve this ticket?"}
+                  : confirm === "approve_offer"
+                    ? "Approve this counter offer?"
+                    : confirm === "reject_offer"
+                      ? "Reject this counter offer?"
+                      : confirm === "counter"
+                        ? kind === "general"
+                          ? "Write a counteroffer?"
+                          : "Set a new amount?"
+                        : confirm === "waive"
+                          ? "Waive this ticket?"
+                          : kind === "extras"
+                            ? "Approve and charge the guest?"
+                            : kind === "claim"
+                              ? "Approve the current amount?"
+                              : "Approve this ticket?"}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === "delete"
                 ? `${ticketRef(id)} will be removed from the inbox. This is a soft delete.`
-                : confirm === "approve" && (kind === "damage" || kind === "extras")
-                  ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ${ticketRef(id)}.`
-                  : confirm === "counter" && (kind === "dispute" || kind === "general")
-                    ? "This will move focus to the conversation so you can send the counteroffer."
-                    : `This will update ${ticketRef(id)}.`}
+                : confirm === "approve_offer"
+                  ? `This sets the current amount to ${money(pendingOffer?.amount)}. It does not make it payable yet.`
+                  : confirm === "reject_offer"
+                    ? `The current amount stays ${money(currentAmount)}.`
+                    : confirm === "approve" && kind === "extras"
+                      ? `This will charge ${money(parseFloat(amountDraft) || 0)} on ${ticketRef(id)}.`
+                      : confirm === "approve" && kind === "claim"
+                        ? `Guest or host must pay ${money(currentAmount)}. The ticket stays open until paid.`
+                        : confirm === "counter" && kind === "claim"
+                          ? "This sets the current amount immediately. You do not need to approve this counter separately."
+                          : confirm === "counter" && kind === "general"
+                            ? "This will move focus to the conversation so you can send the counteroffer."
+                            : `This will update ${ticketRef(id)}.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {confirm === "counter" && kind !== "dispute" && kind !== "general" ? (
+          {confirm === "counter" && kind !== "general" ? (
             <div className="space-y-1.5">
               <Label htmlFor="counter-amount" className="text-xs text-muted-foreground">
                 Counter amount
@@ -724,7 +643,10 @@ const SupportTicketDetailPage = () => {
             <AlertDialogAction
               disabled={busy}
               className={cn(
-                (confirm === "deny" || confirm === "waive" || confirm === "delete") &&
+                (confirm === "deny" ||
+                  confirm === "waive" ||
+                  confirm === "delete" ||
+                  confirm === "reject_offer") &&
                   "bg-destructive text-destructive-foreground hover:bg-destructive/90"
               )}
               onClick={(e) => {
@@ -733,6 +655,7 @@ const SupportTicketDetailPage = () => {
                 else if (confirm === "deny") void runReject();
                 else if (confirm === "counter") void runCounter();
                 else if (confirm === "waive") void runWaive();
+                else if (confirm === "approve_offer" || confirm === "reject_offer") void runReviewOffer();
                 else void runResolve();
               }}
             >

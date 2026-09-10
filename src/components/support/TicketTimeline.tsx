@@ -1,6 +1,7 @@
 import { formatDistanceToNow } from "date-fns";
-import { Camera, CarFront, FileWarning } from "lucide-react";
+import { Camera, CarFront, FileWarning, Handshake } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { TicketAttachments } from "@/components/support/TicketAttachments";
 import { initials, type TimelineItem } from "@/lib/ticketTimeline";
 
@@ -49,6 +50,7 @@ function cardKind(item: TimelineItem): TimelineItem["cardKind"] {
   if (item.id === "opened" || item.id === "claim") return "claim";
   if (item.id === "booking") return "booking";
   const label = (item.cardLabel || item.title || "").toLowerCase();
+  if (label.includes("counter")) return "counter";
   if (label.includes("pre-inspect") || label.includes("pre-trip")) return "pre-inspection";
   if (label.includes("post-inspect") || label.includes("post-trip")) return "post-inspection";
   if (label === "car" || label === "vehicle") return "car";
@@ -60,6 +62,7 @@ function CardIcon({ kind }: { kind: TimelineItem["cardKind"] }) {
   if (kind === "car") return <CarFront className="h-4 w-4" />;
   if (kind === "pre-inspection" || kind === "post-inspection") return <Camera className="h-4 w-4" />;
   if (kind === "claim") return <FileWarning className="h-4 w-4" />;
+  if (kind === "counter") return <Handshake className="h-4 w-4" />;
   return null;
 }
 
@@ -83,7 +86,15 @@ function Avatar({ item }: { item: TimelineItem }) {
   );
 }
 
-export function TicketTimeline({ items }: { items: TimelineItem[] }) {
+export function TicketTimeline({
+  items,
+  onReviewOffer,
+  offerBusy = false,
+}: {
+  items: TimelineItem[];
+  onReviewOffer?: (eventId: number, action: "approve" | "reject") => void;
+  offerBusy?: boolean;
+}) {
   if (!items.length) {
     return (
       <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-1 text-center">
@@ -127,6 +138,7 @@ export function TicketTimeline({ items }: { items: TimelineItem[] }) {
                 className={cn(
                   "mt-2 max-w-2xl rounded-xl border bg-card p-4 shadow-sm",
                   kind === "claim" && "border-amber-200/80",
+                  kind === "counter" && "border-violet-200/80",
                   kind === "pre-inspection" && "border-sky-200/80",
                   kind === "post-inspection" && "border-orange-200/80",
                   kind === "car" && "border-border"
@@ -171,6 +183,30 @@ export function TicketTimeline({ items }: { items: TimelineItem[] }) {
 
                 {item.body ? (
                   <p className="mt-3 whitespace-pre-wrap text-sm text-muted-foreground">{item.body}</p>
+                ) : null}
+
+                {kind === "counter" && (item.can_approve_offer || item.can_reject_offer) ? (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {item.can_approve_offer ? (
+                      <Button
+                        size="sm"
+                        disabled={offerBusy || item.offer_event_id == null}
+                        onClick={() => onReviewOffer?.(Number(item.offer_event_id), "approve")}
+                      >
+                        Approve offer
+                      </Button>
+                    ) : null}
+                    {item.can_reject_offer ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={offerBusy || item.offer_event_id == null}
+                        onClick={() => onReviewOffer?.(Number(item.offer_event_id), "reject")}
+                      >
+                        Reject
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : null}
 
                 {isInspection && !hasAttachments(item.attachments) ? (

@@ -1,11 +1,7 @@
-import type { AdminDisputeRequest } from "@/api/disputeRequests";
-import { DISPUTE_REQUEST_STATUS } from "@/api/disputeRequests";
-import type { AdminDamageTicket } from "@/api/damageTickets";
-import { DAMAGE_TICKET_STATUS } from "@/api/damageTickets";
 import type { AdminBookingInvoice } from "@/api/bookingInvoices";
 import { BOOKING_INVOICE_STATUS, extrasStatusLabel, invoiceItemAttachmentUrls } from "@/api/bookingInvoices";
 import type { SupportChatRoom, SupportTicketKind, SupportTicketMessage } from "@/api/supportTicketChat";
-import { damageStatusLabel, disputeStatusLabel, kindLabel, partyName } from "@/lib/supportTickets";
+import { partyName } from "@/lib/supportTickets";
 import type { AdminUnifiedTicket, UnifiedTicketTimelineItem } from "@/api/unifiedTickets";
 
 export type TimelineKind = "event" | "message" | "card";
@@ -26,8 +22,13 @@ export type TimelineItem = {
   cardLabel?: string;
   cardStatus?: string;
   cardStatusTone?: "warning" | "destructive" | "success" | "info" | "secondary";
-  cardKind?: "booking" | "car" | "pre-inspection" | "post-inspection" | "claim";
+  cardKind?: "booking" | "car" | "pre-inspection" | "post-inspection" | "claim" | "counter";
   fields?: { label: string; value: string }[];
+  offer_status?: string;
+  offer_event_id?: number;
+  can_approve_offer?: boolean;
+  can_reject_offer?: boolean;
+  current_amount?: number | null;
 };
 
 export function initials(name: string | undefined | null) {
@@ -38,10 +39,6 @@ export function initials(name: string | undefined | null) {
 
 const money = (n: number | null | undefined) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(n) || 0);
-
-function later(iso: string, ms: number) {
-  return new Date(new Date(iso).getTime() + ms).toISOString();
-}
 
 const PICKUP = 10;
 const DROP_OFF = 20;
@@ -95,209 +92,11 @@ function bookingBody(opts: {
 
 export function buildSupportTicketEvents(opts: {
   kind: SupportTicketKind;
-  dispute?: AdminDisputeRequest | null;
-  damage?: AdminDamageTicket | null;
   extras?: AdminBookingInvoice | null;
   unified?: AdminUnifiedTicket | null;
 }): TimelineItem[] {
-  const { kind, dispute, damage, extras, unified } = opts;
+  const { kind, extras, unified } = opts;
   const items: TimelineItem[] = [];
-
-  if (kind === "dispute" && dispute) {
-    items.push({
-      id: "opened",
-      at: dispute.createdAt,
-      kind: "card",
-      title: `${kindLabel(kind)} opened`,
-      body: [dispute.category, dispute.description].filter(Boolean).join("\n\n"),
-      actor: dispute.full_name || "Requester",
-      actorRole: "user",
-      badge: "Opened",
-      attachments: dispute.attachments,
-      cardLabel: "Dispute",
-      cardStatus: "Opened",
-      cardStatusTone: "info",
-    });
-    if (dispute.status === DISPUTE_REQUEST_STATUS.COMPLETED) {
-      items.push({
-        id: "resolved",
-        at: dispute.updatedAt || dispute.createdAt,
-        kind: "event",
-        title: "Ticket marked as resolved",
-        actorRole: "admin",
-        badge: disputeStatusLabel(dispute.status),
-      });
-    } else if (dispute.status === DISPUTE_REQUEST_STATUS.CANCELLED) {
-      items.push({
-        id: "rejected",
-        at: dispute.updatedAt || dispute.createdAt,
-        kind: "event",
-        title: "Ticket rejected",
-        actorRole: "admin",
-        badge: disputeStatusLabel(dispute.status),
-      });
-    }
-  }
-
-  if (kind === "damage" && damage) {
-    const vehicle = damage.booking?.vehicle;
-    const hostName = partyName(damage.host, `#${damage.host_id}`);
-    const guestName = partyName(damage.guest, `#${damage.guest_id}`);
-    const carTitle = vehicle
-      ? [vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(" ") || "Car"
-      : "Car";
-    const inspections = damage.booking?.booking_inspections || [];
-    const preFiles = inspectionFiles(inspections, PICKUP);
-    const postFromBooking = inspectionFiles(inspections, DROP_OFF);
-    const postFromLinked = normalizeFiles(damage.inspection?.attachments);
-    const postFiles = postFromBooking.length ? postFromBooking : postFromLinked;
-    const preNote = inspections
-      .filter((row) => Number(row.type) === PICKUP)
-      .map((row) => row.description || row.damage)
-      .filter(Boolean)
-      .join("\n");
-    const postNote =
-      inspections
-        .filter((row) => Number(row.type) === DROP_OFF)
-        .map((row) => row.description || row.damage)
-        .filter(Boolean)
-        .join("\n") || damage.inspection?.description || damage.inspection?.damage || "";
-
-    if (damage.booking) {
-      items.push({
-        id: "booking",
-        at: damage.createdAt,
-        kind: "card",
-        title: `Booking #${damage.booking_id}`,
-        body: bookingBody({
-          host: hostName,
-          guest: guestName,
-          pickup: damage.booking.pickup_at,
-          returnAt: damage.booking.return_at,
-          amount: damage.booking.total_amount ?? null,
-        }),
-        actorRole: "system",
-        actor: "Booking",
-        cardKind: "booking",
-        cardLabel: "Booking",
-        cardStatus: "Trip",
-        cardStatusTone: "info",
-        amount: damage.booking.total_amount ?? null,
-        fields: [
-          { label: "Host", value: hostName },
-          { label: "Guest", value: guestName },
-          { label: "Pickup", value: damage.booking.pickup_at || "—" },
-          { label: "Return", value: damage.booking.return_at || "—" },
-        ],
-      });
-    }
-
-    items.push({
-      id: "vehicle",
-      at: damage.createdAt,
-      kind: "card",
-      title: carTitle,
-      actorRole: "system",
-      actor: "Car",
-      cardKind: "car",
-      cardLabel: "Car",
-      cardStatus: vehicle ? "Listed" : "Missing",
-      cardStatusTone: vehicle ? "secondary" : "warning",
-      fields: [
-        { label: "Vehicle", value: carTitle },
-        { label: "Plate", value: vehicle?.license_plate_number || "—" },
-        { label: "Booking", value: `#${damage.booking_id}` },
-      ],
-    });
-
-    items.push({
-      id: "pre-photos",
-      at: damage.createdAt,
-      kind: "card",
-      title: "Pre-inspection",
-      body: preNote || undefined,
-      actorRole: "system",
-      actor: "Pre-inspection",
-      cardKind: "pre-inspection",
-      cardLabel: "Pre-inspection",
-      cardStatus: preFiles.length ? `${preFiles.length} photo${preFiles.length === 1 ? "" : "s"}` : "No photos",
-      cardStatusTone: preFiles.length ? "info" : "secondary",
-      attachments: preFiles,
-    });
-
-    items.push({
-      id: "post-photos",
-      at: damage.createdAt,
-      kind: "card",
-      title: "Post-inspection",
-      body: postNote || undefined,
-      actorRole: "host",
-      actor: "Post-inspection",
-      cardKind: "post-inspection",
-      cardLabel: "Post-inspection",
-      cardStatus: postFiles.length ? `${postFiles.length} photo${postFiles.length === 1 ? "" : "s"}` : "No photos",
-      cardStatusTone: postFiles.length ? "warning" : "secondary",
-      attachments: postFiles,
-    });
-
-    items.push({
-      id: "opened",
-      at: damage.createdAt,
-      kind: "card",
-      title: "Damage claim",
-      body: damage.damage_description || undefined,
-      actor: hostName,
-      actorRole: "host",
-      badge: "Opened",
-      amount: damage.proposed_amount,
-      attachments: damage.attachments,
-      cardKind: "claim",
-      cardLabel: "Damage claim",
-      cardStatus: damageStatusLabel(damage.status),
-      cardStatusTone: damage.status === DAMAGE_TICKET_STATUS.CANCELLED ? "destructive" : damage.status === DAMAGE_TICKET_STATUS.CHARGED ? "success" : "warning",
-      fields: [
-        { label: "Host", value: hostName },
-        { label: "Guest", value: guestName },
-        { label: "Proposed", value: money(damage.proposed_amount) },
-        {
-          label: "Charge",
-          value: damage.final_amount != null ? money(damage.final_amount) : "Not set",
-        },
-      ],
-    });
-    if (damage.final_amount != null && damage.status >= DAMAGE_TICKET_STATUS.AMOUNT_SET) {
-      items.push({
-        id: "amount-set",
-        at: later(damage.updatedAt || damage.createdAt, -60_000),
-        kind: "event",
-        title: `Amount set at ${money(damage.final_amount)}`,
-        actorRole: "admin",
-        badge: "Amount set",
-        amount: damage.final_amount,
-      });
-    }
-    if (damage.charged_at) {
-      items.push({
-        id: "charged",
-        at: damage.charged_at,
-        kind: "event",
-        title: `Guest charged ${money(damage.final_amount ?? damage.proposed_amount)}`,
-        actorRole: "admin",
-        badge: damageStatusLabel(DAMAGE_TICKET_STATUS.CHARGED),
-        amount: damage.final_amount ?? damage.proposed_amount,
-      });
-    } else if (damage.status === DAMAGE_TICKET_STATUS.CANCELLED) {
-      items.push({
-        id: "cancelled",
-        at: damage.updatedAt || damage.createdAt,
-        kind: "event",
-        title: "Ticket rejected",
-        body: damage.admin_notes || undefined,
-        actorRole: "admin",
-        badge: damageStatusLabel(DAMAGE_TICKET_STATUS.CANCELLED),
-      });
-    }
-  }
 
   if (kind === "extras" && extras) {
     items.push({
@@ -509,6 +308,13 @@ function unifiedTimelineItem(row: UnifiedTicketTimelineItem): TimelineItem {
     cardLabel: row.cardLabel,
     cardStatus: row.cardStatus,
     cardStatusTone: row.cardStatusTone as TimelineItem["cardStatusTone"],
+    cardKind: row.cardKind as TimelineItem["cardKind"],
+    fields: row.fields,
+    offer_status: row.offer_status,
+    offer_event_id: row.offer_event_id,
+    can_approve_offer: row.can_approve_offer,
+    can_reject_offer: row.can_reject_offer,
+    current_amount: row.current_amount,
   };
 }
 
