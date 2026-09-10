@@ -12,21 +12,38 @@ import type { SupportChatRoom, SupportTicketKind } from "@/api/supportTicketChat
 import { TicketTimeline } from "@/components/support/TicketTimeline";
 import { mergeTimeline, messagesToTimeline, type TimelineItem } from "@/lib/ticketTimeline";
 
+function isChatCopy(item: TimelineItem) {
+  return (
+    item.kind === "message" ||
+    item.badge === "message" ||
+    item.title === "Message sent"
+  );
+}
+
+function sameChat(a: TimelineItem, b: TimelineItem) {
+  const bodyA = (a.body || "").trim();
+  const bodyB = (b.body || "").trim();
+  if (!bodyA || bodyA !== bodyB) return false;
+  const actorA = (a.actor || a.title || "").trim().toLowerCase();
+  const actorB = (b.actor || b.title || "").trim().toLowerCase();
+  const actorsMatch =
+    !actorA ||
+    !actorB ||
+    actorA === actorB ||
+    a.actorRole === b.actorRole ||
+    a.actorRole === "admin" ||
+    b.actorRole === "admin";
+  if (!actorsMatch) return false;
+  return Math.abs(new Date(a.at).getTime() - new Date(b.at).getTime()) < 15_000;
+}
+
 function dedupeTimeline(items: TimelineItem[]): TimelineItem[] {
   const out: TimelineItem[] = [];
   for (const item of items) {
-    if (item.kind !== "message") {
-      out.push(item);
+    if (isChatCopy(item) && out.some((prev) => isChatCopy(prev) && sameChat(prev, item))) {
       continue;
     }
-    const dup = out.some(
-      (prev) =>
-        prev.kind === "message" &&
-        prev.body === item.body &&
-        prev.actor === item.actor &&
-        Math.abs(new Date(prev.at).getTime() - new Date(item.at).getTime()) < 15_000
-    );
-    if (!dup) out.push(item);
+    out.push(item);
   }
   return out;
 }
@@ -81,7 +98,8 @@ export function TicketChat({
       ...messagesToTimeline(hostQ.data?.messages ?? [], "host"),
       ...messagesToTimeline(guestQ.data?.messages ?? [], "guest"),
     ];
-    return dedupeTimeline(mergeTimeline([...events, ...msgs]));
+    const story = events.filter((item) => item.badge !== "message" && item.title !== "Message sent");
+    return dedupeTimeline(mergeTimeline([...story, ...msgs]));
   }, [events, userQ.data, hostQ.data, guestQ.data]);
 
   useEffect(() => {
