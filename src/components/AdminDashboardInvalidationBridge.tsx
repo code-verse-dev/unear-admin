@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { adminDashboardQueryKey } from "@/hooks/useAdminDashboard";
+import { activityNotificationsQueryKeyRoot } from "@/hooks/useAdminActivityNotifications";
 
 /**
  * Refetches dashboard stats/charts/activity whenever any React Query mutation succeeds
@@ -16,6 +17,7 @@ export function AdminDashboardInvalidationBridge() {
       if (!mutation || mutation.state.status !== "success") return;
       if (mutation.meta?.skipAdminDashboardInvalidation) return;
       void queryClient.invalidateQueries({ queryKey: adminDashboardQueryKey });
+      void queryClient.invalidateQueries({ queryKey: activityNotificationsQueryKeyRoot });
     });
   }, [queryClient]);
 

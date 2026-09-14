@@ -18,6 +18,7 @@ export type AppUser = {
   lastname: string;
   name: string;
   nickname: string;
+  display_name?: string;
   email: string;
   mobile_no: string | null;
   image_url: string | null;
@@ -26,12 +27,28 @@ export type AppUser = {
   country: string | null;
   city: string | null;
   zipcode: string | null;
+  dob?: string | null;
+  license_no?: string | null;
+  license_state?: string | null;
+  age_first_licensed?: string | null;
   average_rating: number;
+  wallet_balance?: number | null;
   push_notification: boolean;
   is_blocked: boolean;
   is_activated: boolean;
   is_verified: boolean;
+  is_email_verify?: boolean;
+  is_mobile_verify?: boolean;
+  email_verifyAt?: string | null;
+  mobile_verifyAt?: string | null;
+  didit_session_id?: string | null;
+  didit_verification_status?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_connect_account_id?: string | null;
+  transfer_capabilities?: boolean;
+  login_type?: string | null;
   createdAt: string;
+  updatedAt?: string | null;
   id_card_front?: string | null;
   id_card_back?: string | null;
   driving_license_front?: string | null;
@@ -167,8 +184,9 @@ export async function setUserPassword(id: number, new_password: string): Promise
   });
 }
 
-export async function toggleUserVerification(id: number): Promise<void> {
-  await adminFetch<ApiSuccess<unknown>>(`/api/admin/update-user-verification/${id}`, {
+export async function toggleUserVerification(id: number, is_verified?: boolean): Promise<void> {
+  const q = is_verified === undefined ? "" : `?is_verified=${is_verified ? "1" : "0"}`;
+  await adminFetch<ApiSuccess<unknown>>(`/api/admin/update-user-verification/${id}${q}`, {
     method: "GET",
     auth: true,
   });

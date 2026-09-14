@@ -17,12 +17,22 @@ export type AdminActivityNotification = {
   ref_id: number;
 };
 
-export async function fetchActivityNotifications(limit = 30): Promise<AdminActivityNotification[]> {
+export type ActivityNotificationsResult = {
+  items: AdminActivityNotification[];
+  pending_users: number;
+};
+
+export const ACTIVITY_BELL_LIMIT = 15;
+
+export async function fetchActivityNotifications(limit = 30): Promise<ActivityNotificationsResult> {
   const q = new URLSearchParams();
   q.set("limit", String(limit));
-  const json = await adminFetch<ApiSuccess<{ items: AdminActivityNotification[] }>>(
+  const json = await adminFetch<ApiSuccess<{ items?: AdminActivityNotification[]; pending_users?: number }>>(
     `/api/admin/activity-notifications?${q.toString()}`,
     { method: "GET", auth: true }
   );
-  return json.data.items ?? [];
+  return {
+    items: Array.isArray(json.data?.items) ? json.data.items : [],
+    pending_users: Number(json.data?.pending_users) || 0,
+  };
 }

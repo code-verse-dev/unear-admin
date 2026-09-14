@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import AdminLayout from "@/components/AdminLayout";
 import Dashboard from "@/pages/Dashboard";
 import UsersPage from "@/pages/UsersPage";
+import UserDetailPage from "@/pages/UserDetailPage";
 import VehiclesPage from "@/pages/VehiclesPage";
 import SupportTicketsPage from "@/pages/SupportTicketsPage";
 import SupportTicketDetailPage from "@/pages/SupportTicketDetailPage";
@@ -46,6 +47,7 @@ const App = () => {
             <Route element={<AdminLayout />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/users/:id" element={<UserDetailPage />} />
               <Route path="/vehicles" element={<VehiclesPage />} />
               <Route path="/claims" element={<Navigate to="/support-tickets?type=claim" replace />} />
               <Route path="/support-tickets" element={<SupportTicketsPage />} />
