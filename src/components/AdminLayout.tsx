@@ -22,6 +22,8 @@ import { adminLogout } from "@/lib/admin-api";
 import { useAdminActivityNotificationsQuery } from "@/hooks/useAdminActivityNotifications";
 import { useAdminActivityReadState } from "@/hooks/useAdminActivityReadState";
 import type { AdminActivityKind } from "@/api/adminActivityNotifications";
+import { ACTIVITY_BELL_LIMIT } from "@/api/adminActivityNotifications";
+import { AdminNewAccountNotifier } from "@/components/AdminNewAccountNotifier";
 import { cn } from "@/lib/utils";
 import ThemeToggle from "@/components/ThemeToggle";
 
@@ -33,12 +35,11 @@ const KIND_ICONS: Record<AdminActivityKind, LucideIcon> = {
   vehicle_listed: Car,
 };
 
-const BELL_PREVIEW_LIMIT = 15;
-
 const AdminLayout = () => {
   const navigate = useNavigate();
-  const { data: activityItems = [], isLoading, isError, error } = useAdminActivityNotificationsQuery(BELL_PREVIEW_LIMIT);
+  const { data, isLoading, isError, error } = useAdminActivityNotificationsQuery(ACTIVITY_BELL_LIMIT);
   const { readSet, markRead, markAllRead } = useAdminActivityReadState();
+  const activityItems = data?.items ?? [];
 
   const displayName = useMemo(() => {
     const s = getAdminSession();
@@ -64,6 +65,7 @@ const AdminLayout = () => {
 
   return (
     <SidebarProvider>
+      <AdminNewAccountNotifier />
       <div className="flex min-h-screen w-full min-w-0">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0">

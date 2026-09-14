@@ -40,6 +40,26 @@ export function useUsersListQuery(params: UsersListParams) {
   });
 }
 
+/** Pending profile-approval count for the sidebar badge. */
+export function usePendingUsersCountQuery() {
+  return useQuery({
+    queryKey: [...usersQueryKeyRoot, "pending-count"] as const,
+    queryFn: async () => {
+      const r = await listUsers({
+        page: 1,
+        limit: 1,
+        verification: "pending",
+        orderBy: "id",
+        order: "ASC",
+      });
+      return Number(r.links?.total_records) || 0;
+    },
+    staleTime: 10_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: false,
+  });
+}
+
 /** Paginated users for pickers; load more with `fetchNextPage` (e.g. on scroll). */
 export function useUsersInfiniteListQuery(debouncedSearch: string, enabled: boolean) {
   return useInfiniteQuery({
@@ -176,8 +196,21 @@ export function useSetUserPasswordMutation() {
 export function useToggleUserVerificationMutation() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => toggleUserVerification(id),
-    onSuccess: () => {
+    mutationFn: ({ id, is_verified }: { id: number; is_verified?: boolean }) =>
+      toggleUserVerification(id, is_verified),
+    onSuccess: (_data, { id, is_verified }) => {
+      if (is_verified !== undefined) {
+        qc.setQueryData<AppUser>(userDetailQueryKey(id), (old) =>
+          old ? { ...old, is_verified } : old
+        );
+        qc.setQueriesData<UsersListResult>({ queryKey: usersQueryKeyRoot }, (old) => {
+          if (!old?.rows?.length) return old;
+          return {
+            ...old,
+            rows: old.rows.map((u) => (u.id === id ? { ...u, is_verified } : u)),
+          };
+        });
+      }
       qc.invalidateQueries({ queryKey: usersQueryKeyRoot });
     },
   });

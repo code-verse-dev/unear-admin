@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import PageContainer from "@/components/PageContainer";
 import SearchFilter from "@/components/SearchFilter";
 import DataTable, { Column } from "@/components/DataTable";
 import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { CarFront, Eye, Edit, Trash2, KeyRound, Loader2, Camera } from "lucide-react";
+import { Eye, Edit, Trash2, KeyRound, Loader2, Camera } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -30,116 +30,32 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { USERS_PAGE_SIZE_DEFAULT, type AppUser, type UsersListParams } from "@/api/users";
 import {
-  VEHICLE_STATUS,
-  getVehicle,
-  vehicleDetailQueryKey,
-  vehicleListingImageUrls,
-  type AdminVehicle,
-} from "@/api/vehicles";
-import { useVehiclesForUserQuery } from "@/hooks/useAdminVehicles";
-import {
   useUsersListQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,
   useBlockUserMutation,
   useUnblockUserMutation,
   useSetUserPasswordMutation,
-  useToggleUserVerificationMutation,
 } from "@/hooks/useAdminUsers";
 import { resolveMediaUrl } from "@/lib/admin-api";
-import { cn } from "@/lib/utils";
-
-const formatDateUS = (iso: string | undefined) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
-};
-
-function displayName(u: AppUser) {
-  const n = [u.firstname, u.lastname].filter(Boolean).join(" ").trim();
-  return n || u.name || u.nickname || u.email || `User #${u.id}`;
-}
-
-function userInitials(u: AppUser): string {
-  const base =
-    [u.firstname, u.lastname].filter(Boolean).join(" ").trim() ||
-    u.name ||
-    u.nickname ||
-    u.email ||
-    "?";
-  const parts = base.trim().split(/\s+/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0][0] ?? ""}${parts[parts.length - 1][0] ?? ""}`.toUpperCase() || "?";
-  }
-  return base.slice(0, 2).toUpperCase() || "?";
-}
-
-function accountLabel(u: AppUser): { label: string; variant: "success" | "destructive" | "warning" } {
-  if (u.is_blocked) return { label: "Blocked", variant: "destructive" };
-  if (!u.is_activated) return { label: "Deactivated", variant: "warning" };
-  return { label: "Active", variant: "success" };
-}
-
-function vehicleStatusLabel(status: number): string {
-  switch (status) {
-    case VEHICLE_STATUS.AVAILABLE:
-      return "Available";
-    case VEHICLE_STATUS.RESERVED:
-      return "Reserved";
-    case VEHICLE_STATUS.TOKEN_PAID:
-      return "Token paid";
-    case VEHICLE_STATUS.SOLD:
-      return "Sold";
-    case VEHICLE_STATUS.RENTED:
-      return "Rented";
-    default:
-      return `Status ${status}`;
-  }
-}
-
-function vehicleStatusVariant(
-  status: number
-): "success" | "warning" | "destructive" | "default" | "secondary" {
-  if (status === VEHICLE_STATUS.AVAILABLE) return "success";
-  if (status === VEHICLE_STATUS.RESERVED || status === VEHICLE_STATUS.TOKEN_PAID) return "warning";
-  if (status === VEHICLE_STATUS.SOLD || status === VEHICLE_STATUS.RENTED) return "secondary";
-  return "default";
-}
-
-function listingTypeLabel(type: number): string {
-  if (type === 10) return "Sale";
-  if (type === 20) return "Rent";
-  return `Type ${type}`;
-}
-
-function displayVehicleOwner(v: AdminVehicle): string {
-  const o = v.owner;
-  if (!o) return `User #${v.user_id}`;
-  const n = [o.firstname, o.lastname].filter(Boolean).join(" ").trim();
-  return n || `User #${o.id}`;
-}
-
-function vehicleOwnerInitials(v: AdminVehicle): string {
-  const o = v.owner;
-  if (!o) return "?";
-  const a = (o.firstname?.[0] || "").toUpperCase();
-  const b = (o.lastname?.[0] || "").toUpperCase();
-  if (a && b) return `${a}${b}`;
-  return (a || b || "?").slice(0, 2);
-}
+import { accountLabel, displayName, formatDateUS, userInitials } from "@/lib/usersDisplay";
 
 const actionIconButtonClass =
   "h-8 w-8 text-muted-foreground hover:bg-primary hover:text-white transition-colors";
 
-type UserSheetMode = "view" | "edit";
+type UserSheetMode = "edit";
 
 const UsersPage = () => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const verificationFromUrl = searchParams.get("verification");
   const [searchInput, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [accountStatus, setAccountStatus] = useState<string>("all");
-  const [verificationFilter, setVerificationFilter] = useState<string>("all");
+  const [verificationFilter, setVerificationFilter] = useState<string>(
+    verificationFromUrl === "pending" || verificationFromUrl === "verified" ? verificationFromUrl : "all"
+  );
 
   const [userSheetMode, setUserSheetMode] = useState<UserSheetMode | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -152,8 +68,6 @@ const UsersPage = () => {
     is_activated: "true",
   });
   const [newPassword, setNewPassword] = useState("");
-  const [vehicleDetailId, setVehicleDetailId] = useState<number | null>(null);
-  const [vehicleDetailSeed, setVehicleDetailSeed] = useState<AdminVehicle | null>(null);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarDraftUrl, setAvatarDraftUrl] = useState<string | null>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
@@ -164,6 +78,20 @@ const UsersPage = () => {
     const t = setTimeout(() => setDebouncedSearch(searchInput.trim()), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  useEffect(() => {
+    const v = searchParams.get("verification");
+    const next = v === "pending" || v === "verified" ? v : "all";
+    setVerificationFilter((prev) => (prev === next ? prev : next));
+  }, [searchParams]);
+
+  const setVerification = (value: string) => {
+    setVerificationFilter(value);
+    const next = new URLSearchParams(searchParams);
+    if (value === "all") next.delete("verification");
+    else next.set("verification", value);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     setPage(1);
@@ -187,43 +115,19 @@ const UsersPage = () => {
   );
 
   const { data, isLoading, isFetching, isError, error, refetch } = useUsersListQuery(listParams);
-  const {
-    data: userVehiclesData,
-    isLoading: userVehiclesLoading,
-    isError: userVehiclesError,
-  } = useVehiclesForUserQuery(selectedUser?.id ?? null, userSheetMode === "view");
-
-  const {
-    data: vehicleDetailFetched,
-    isFetching: vehicleDetailFetching,
-    isError: vehicleDetailError,
-  } = useQuery({
-    queryKey: vehicleDetailId != null ? vehicleDetailQueryKey(vehicleDetailId) : ["admin", "vehicles", "detail", "none"],
-    queryFn: () => getVehicle(vehicleDetailId!),
-    enabled: vehicleDetailId != null,
-    placeholderData:
-      vehicleDetailSeed && vehicleDetailId != null && vehicleDetailSeed.id === vehicleDetailId
-        ? vehicleDetailSeed
-        : undefined,
-  });
-
-  const vehicleDetailOpen = vehicleDetailId != null;
-  const vehicleDetail = vehicleDetailFetched ?? vehicleDetailSeed ?? null;
 
   const updateMut = useUpdateUserMutation();
   const deleteMut = useDeleteUserMutation();
   const blockMut = useBlockUserMutation();
   const unblockMut = useUnblockUserMutation();
   const passwordMut = useSetUserPasswordMutation();
-  const verifyMut = useToggleUserVerificationMutation();
 
   const busy =
     updateMut.isPending ||
     deleteMut.isPending ||
     blockMut.isPending ||
     unblockMut.isPending ||
-    passwordMut.isPending ||
-    verifyMut.isPending;
+    passwordMut.isPending;
 
   useEffect(() => {
     if (isError && error instanceof Error) {
@@ -235,9 +139,8 @@ const UsersPage = () => {
   const totalPages = Math.max(1, data?.links?.total ?? 1);
   const currentPage = data?.links?.current ?? page;
 
-  const openViewSheet = (u: AppUser) => {
-    setSelectedUser(u);
-    setUserSheetMode("view");
+  const openUserDetail = (u: AppUser) => {
+    navigate(`/users/${u.id}`);
   };
 
   const openEditSheet = (u: AppUser) => {
@@ -258,12 +161,6 @@ const UsersPage = () => {
       });
       setAvatarFile(null);
     }
-  }, [userSheetMode]);
-
-  useEffect(() => {
-    if (userSheetMode !== null) return;
-    setVehicleDetailId(null);
-    setVehicleDetailSeed(null);
   }, [userSheetMode]);
 
   useEffect(() => {
@@ -392,19 +289,6 @@ const UsersPage = () => {
     }
   };
 
-  const toggleVerification = async (u: AppUser) => {
-    try {
-      await verifyMut.mutateAsync(u.id);
-      toast({ title: "Verification updated", description: displayName(u) });
-    } catch (e) {
-      toast({
-        title: "Request failed",
-        description: e instanceof Error ? e.message : "Unknown error",
-        variant: "destructive",
-      });
-    }
-  };
-
   const columns: Column<AppUser>[] = [
     { key: "id", header: "ID", render: (row) => <span className="font-mono text-xs">{row.id}</span> },
     {
@@ -432,26 +316,11 @@ const UsersPage = () => {
     {
       key: "is_verified",
       header: "Verification",
-      render: (row) => {
-        const verifying = verifyMut.isPending && verifyMut.variables === row.id;
-        return (
-          <Button
-            type="button"
-            variant="ghost"
-            className="h-auto min-h-8 py-0.5 px-1.5 -ml-1.5 gap-1.5 hover:bg-muted/80"
-            title={row.is_verified ? "Mark verification as pending" : "Mark as verified"}
-            disabled={busy}
-            onClick={() => void toggleVerification(row)}
-          >
-            {verifying ? (
-              <Loader2 className="w-4 h-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-            ) : null}
-            <StatusBadge variant={row.is_verified ? "success" : "warning"}>
-              {row.is_verified ? "Verified" : "Pending"}
-            </StatusBadge>
-          </Button>
-        );
-      },
+      render: (row) => (
+        <StatusBadge variant={row.is_verified ? "success" : "warning"}>
+          {row.is_verified ? "Verified" : "Pending"}
+        </StatusBadge>
+      ),
     },
     {
       key: "status",
@@ -498,9 +367,9 @@ const UsersPage = () => {
             variant="ghost"
             size="icon"
             className={actionIconButtonClass}
-            title="View"
+            title="Review profile"
             disabled={busy}
-            onClick={() => openViewSheet(row)}
+            onClick={() => openUserDetail(row)}
           >
             <Eye className="w-4 h-4" />
           </Button>
@@ -569,7 +438,7 @@ const UsersPage = () => {
             {
               label: "Verification",
               value: verificationFilter,
-              onChange: setVerificationFilter,
+              onChange: setVerification,
               options: [
                 { label: "All", value: "all" },
                 { label: "Verified", value: "verified" },
@@ -581,7 +450,7 @@ const UsersPage = () => {
             setSearchInput("");
             setDebouncedSearch("");
             setAccountStatus("all");
-            setVerificationFilter("all");
+            setVerification("all");
             setPage(1);
           }}
         />
@@ -602,6 +471,7 @@ const UsersPage = () => {
           totalPages={totalPages}
           onPageChange={setPage}
           getRowId={(u) => u.id}
+          onRowClick={openUserDetail}
           emptyMessage="No users match your filters."
           isLoading={isLoading}
           pageSize={listParams.limit ?? USERS_PAGE_SIZE_DEFAULT}
@@ -611,7 +481,7 @@ const UsersPage = () => {
       </div>
 
       <Sheet
-        open={userSheetMode !== null}
+        open={userSheetMode === "edit"}
         onOpenChange={(open) => {
           if (!open) {
             setUserSheetMode(null);
@@ -621,134 +491,14 @@ const UsersPage = () => {
       >
         <SheetContent
           side="right"
-          className={cn(
-            "flex w-full flex-col gap-0 overflow-hidden p-0",
-            userSheetMode === "view" && "sm:max-w-xl",
-            userSheetMode === "edit" && "sm:max-w-md"
-          )}
+          className="flex w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-md"
         >
-          <SheetDescription className="sr-only">
-            {userSheetMode === "view"
-              ? "User details and vehicle listings."
-              : userSheetMode === "edit"
-                ? "Edit user profile."
-                : ""}
-          </SheetDescription>
-          {selectedUser && userSheetMode === "view" ? (
-            <SheetTitle className="sr-only">{displayName(selectedUser)} — user details</SheetTitle>
-          ) : selectedUser && userSheetMode === "edit" ? (
+          <SheetDescription className="sr-only">Edit user profile.</SheetDescription>
+          {selectedUser && userSheetMode === "edit" ? (
             <SheetTitle className="sr-only">Edit {displayName(selectedUser)}</SheetTitle>
           ) : (
-            <SheetTitle className="sr-only">User</SheetTitle>
+            <SheetTitle className="sr-only">Edit user</SheetTitle>
           )}
-
-          {selectedUser && userSheetMode === "view" ? (
-            <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14 sm:pr-8">
-              <div className="mb-6 flex flex-row items-center gap-4 text-left">
-                <Avatar className="h-16 w-16 shrink-0 border-2 border-border shadow-sm">
-                  <AvatarImage src={resolveMediaUrl(selectedUser.image_url)} alt="" className="object-cover" />
-                  <AvatarFallback className="text-lg font-semibold">{userInitials(selectedUser)}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground">
-                    {displayName(selectedUser)}
-                  </h2>
-                  <p className="truncate text-sm text-muted-foreground">{selectedUser.email}</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">ID</span>
-                  <span className="font-medium font-mono text-foreground">{selectedUser.id}</span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Phone</span>
-                  <span className="font-medium text-foreground">{selectedUser.mobile_no || "—"}</span>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Verification</span>
-                  <StatusBadge variant={selectedUser.is_verified ? "success" : "warning"}>
-                    {selectedUser.is_verified ? "Verified" : "Pending"}
-                  </StatusBadge>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <span className="text-muted-foreground">Account</span>
-                  <StatusBadge variant={accountLabel(selectedUser).variant}>
-                    {accountLabel(selectedUser).label}
-                  </StatusBadge>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Registered</span>
-                  <span className="font-medium text-foreground">{formatDateUS(selectedUser.createdAt)}</span>
-                </div>
-              </div>
-
-              <div className="mt-8 border-t border-border pt-6">
-                <div className="mb-3">
-                  <h3 className="text-sm font-semibold text-foreground">Vehicles</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Click a listing for full details</p>
-                </div>
-                {userVehiclesLoading ? (
-                  <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    Loading listings…
-                  </div>
-                ) : userVehiclesError ? (
-                  <p className="py-4 text-sm text-muted-foreground">Could not load vehicles.</p>
-                ) : (userVehiclesData?.rows ?? []).length === 0 ? (
-                  <p className="py-4 text-sm text-muted-foreground">No vehicle listings for this user.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {(userVehiclesData?.rows ?? []).map((v: AdminVehicle) => {
-                      const thumbs = vehicleListingImageUrls(v);
-                      return (
-                        <li key={v.id}>
-                          <button
-                            type="button"
-                            className="flex w-full gap-3 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                            onClick={() => {
-                              setVehicleDetailId(v.id);
-                              setVehicleDetailSeed(v);
-                            }}
-                          >
-                            <div className="relative h-14 w-[4.5rem] shrink-0 overflow-hidden rounded-md bg-muted">
-                              {thumbs[0] ? (
-                                <img
-                                  src={thumbs[0]}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                                  <CarFront className="h-6 w-6" aria-hidden />
-                                </div>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium leading-tight text-foreground">
-                                {[v.make, v.model].filter(Boolean).join(" ")}
-                                {v.year != null ? ` · ${v.year}` : ""}
-                              </p>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                <StatusBadge variant={vehicleStatusVariant(v.status)}>
-                                  {vehicleStatusLabel(v.status)}
-                                </StatusBadge>
-                                {v.blocked_by_admin ? (
-                                  <StatusBadge variant="destructive">Restricted</StatusBadge>
-                                ) : null}
-                              </div>
-                            </div>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </div>
-            </div>
-          ) : null}
 
           {selectedUser && userSheetMode === "edit" ? (
             <div className="flex min-h-0 flex-1 flex-col border-border bg-muted/25">
@@ -841,149 +591,6 @@ const UsersPage = () => {
               </SheetFooter>
             </div>
           ) : null}
-        </SheetContent>
-      </Sheet>
-
-      <Sheet
-        open={vehicleDetailOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setVehicleDetailId(null);
-            setVehicleDetailSeed(null);
-          }
-        }}
-      >
-        <SheetContent
-          side="right"
-          className="flex max-h-full w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-lg"
-        >
-          <SheetDescription className="sr-only">Vehicle listing details</SheetDescription>
-          {vehicleDetail ? (
-            <>
-              <SheetTitle className="sr-only">
-                {vehicleDetail.make} {vehicleDetail.model} {vehicleDetail.year}
-              </SheetTitle>
-              <div className="min-h-0 flex-1 overflow-y-auto p-6 pt-14 sm:pt-6">
-                <div className="mb-1 flex items-start justify-between gap-2 pr-2">
-                  <div>
-                    <h2 className="text-lg font-semibold leading-tight text-foreground">Vehicle details</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {[vehicleDetail.make, vehicleDetail.model].filter(Boolean).join(" ")}
-                      {vehicleDetail.year != null ? ` (${vehicleDetail.year})` : ""}
-                    </p>
-                  </div>
-                  {vehicleDetailFetching ? (
-                    <Loader2 className="mt-1 h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-                  ) : null}
-                </div>
-                {vehicleDetailError ? (
-                  <p className="mb-4 text-xs text-destructive">Could not refresh full details; showing cached data.</p>
-                ) : null}
-
-                <div className="space-y-3 py-2 text-sm">
-                  {vehicleListingImageUrls(vehicleDetail).length > 0 ? (
-                    <div>
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">Listing images</p>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        {vehicleListingImageUrls(vehicleDetail).map((src, i) => (
-                          <a
-                            key={`${src}-${i}`}
-                            href={src}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block aspect-[4/3] overflow-hidden rounded-lg border border-border bg-muted outline-none ring-offset-background transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                    <Avatar className="h-12 w-12 shrink-0 border-2 border-border shadow-sm">
-                      <AvatarImage
-                        src={resolveMediaUrl(vehicleDetail.owner?.image_url)}
-                        alt=""
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="text-sm font-semibold">
-                        {vehicleOwnerInitials(vehicleDetail)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground">Owner</p>
-                      <p className="truncate font-medium text-foreground">
-                        {displayVehicleOwner(vehicleDetail)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">ID</span>
-                    <span className="font-mono font-medium">{vehicleDetail.id}</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">VIN</span>
-                    <span className="break-all text-right font-mono font-medium">{vehicleDetail.vin || "—"}</span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Listing type</span>
-                    <span className="font-medium">{listingTypeLabel(vehicleDetail.type)}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Status</span>
-                    <StatusBadge variant={vehicleStatusVariant(vehicleDetail.status)}>
-                      {vehicleStatusLabel(vehicleDetail.status)}
-                    </StatusBadge>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-muted-foreground">Restricted</span>
-                    <StatusBadge variant={vehicleDetail.blocked_by_admin ? "destructive" : "success"}>
-                      {vehicleDetail.blocked_by_admin ? "Yes" : "No"}
-                    </StatusBadge>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Location</span>
-                    <span className="text-right font-medium">
-                      {[vehicleDetail.city, vehicleDetail.state].filter(Boolean).join(", ") || "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Price</span>
-                    <span className="font-medium">
-                      {vehicleDetail.price != null
-                        ? `$${Number(vehicleDetail.price).toLocaleString()}`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Plate</span>
-                    <span className="font-medium">
-                      {vehicleDetail.license_plate_number
-                        ? `${vehicleDetail.license_plate_number}${
-                            vehicleDetail.license_plate_state
-                              ? ` (${vehicleDetail.license_plate_state})`
-                              : ""
-                          }`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span className="text-muted-foreground">Listed</span>
-                    <span className="font-medium">{formatDateUS(vehicleDetail.createdAt)}</span>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <SheetTitle className="sr-only">Vehicle details</SheetTitle>
-              <div className="flex flex-1 items-center justify-center p-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
-              </div>
-            </>
-          )}
         </SheetContent>
       </Sheet>
 
