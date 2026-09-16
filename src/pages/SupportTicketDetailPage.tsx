@@ -61,7 +61,6 @@ const SupportTicketDetailPage = () => {
   const deleteMut = useDeleteSupportTicketMutation();
 
   const [amountDraft, setAmountDraft] = useState("");
-  const [stickyNotes, setStickyNotes] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [confirm, setConfirm] = useState<
     "approve" | "deny" | "counter" | "waive" | "delete" | "approve_offer" | "reject_offer" | null
@@ -75,11 +74,9 @@ const SupportTicketDetailPage = () => {
   useEffect(() => {
     if (kind === "extras" && extras) {
       setAmountDraft(String(extras.total_amount ?? ""));
-      setStickyNotes(extras.admin_notes || "");
     }
     if ((kind === "claim" || kind === "general") && unified) {
       setAmountDraft(String(unified.amount ?? unified.claim?.amount ?? ""));
-      setStickyNotes(unified.admin_notes || "");
     }
   }, [kind, extras, unified]);
 
@@ -357,31 +354,6 @@ const SupportTicketDetailPage = () => {
     }
   };
 
-  const saveStickyNotes = async (notes: string) => {
-    try {
-      if (kind === "extras") {
-        await updateExtras.mutateAsync({
-          id,
-          body: { action: "save_notes", admin_notes: notes },
-        });
-      } else {
-        await updateUnified.mutateAsync({
-          id,
-          body: { admin_notes: notes },
-        });
-      }
-      setStickyNotes(notes);
-      toast({ title: "Notes saved" });
-    } catch (e) {
-      toast({
-        title: "Could not save notes",
-        description: e instanceof Error ? e.message : "Try again",
-        variant: "destructive",
-      });
-      throw e;
-    }
-  };
-
   const busy = updateExtras.isPending || updateUnified.isPending || deleteMut.isPending;
   const pendingOffer = kind === "claim" ? unified?.pending_counter : null;
   const currentAmount = kind === "claim" ? Number(unified?.amount ?? unified?.claim?.amount ?? 0) : null;
@@ -584,9 +556,6 @@ const SupportTicketDetailPage = () => {
               source="Via app"
               counterPromptKey={counterPromptKey}
               offerBusy={busy}
-              stickyNotes={stickyNotes}
-              onSaveStickyNotes={saveStickyNotes}
-              stickyNotesBusy={busy}
               onReviewOffer={(eventId, action) => {
                 setOfferEventId(eventId);
                 setConfirm(action === "approve" ? "approve_offer" : "reject_offer");
