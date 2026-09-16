@@ -32,6 +32,7 @@ export type AdminBookingInvoice = {
   host_id: number;
   status: string;
   note: string | null;
+  admin_notes?: string | null;
   subtotal: number;
   platform_cut: number;
   host_amount: number;
@@ -72,9 +73,10 @@ export async function getBookingInvoice(id: number): Promise<AdminBookingInvoice
 }
 
 export type UpdateBookingInvoiceBody = {
-  action: "confirm" | "deny" | "waive" | "counter" | "set_amount";
+  action: "confirm" | "deny" | "waive" | "counter" | "set_amount" | "save_notes";
   amount?: number;
   note?: string | null;
+  admin_notes?: string | null;
 };
 
 export async function updateBookingInvoice(

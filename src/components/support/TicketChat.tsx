@@ -9,6 +9,7 @@ import {
   useSupportTicketMessagesQuery,
 } from "@/hooks/useSupportTicketChat";
 import type { SupportChatRoom, SupportTicketKind } from "@/api/supportTicketChat";
+import { TicketStickyNotes } from "@/components/support/TicketStickyNotes";
 import { TicketTimeline } from "@/components/support/TicketTimeline";
 import { mergeTimeline, messagesToTimeline, type TimelineItem } from "@/lib/ticketTimeline";
 
@@ -60,6 +61,9 @@ export function TicketChat({
   counterPromptKey = 0,
   onReviewOffer,
   offerBusy = false,
+  stickyNotes = "",
+  onSaveStickyNotes,
+  stickyNotesBusy = false,
 }: {
   kind: SupportTicketKind;
   id: number;
@@ -72,6 +76,9 @@ export function TicketChat({
   counterPromptKey?: number;
   onReviewOffer?: (eventId: number, action: "approve" | "reject") => void;
   offerBusy?: boolean;
+  stickyNotes?: string;
+  onSaveStickyNotes?: (notes: string) => Promise<void>;
+  stickyNotesBusy?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
@@ -149,6 +156,9 @@ export function TicketChat({
         <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={refetchAll} disabled={isFetching}>
           <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
         </Button>
+        {onSaveStickyNotes ? (
+          <TicketStickyNotes value={stickyNotes} onSave={onSaveStickyNotes} busy={stickyNotesBusy} />
+        ) : null}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
