@@ -10,6 +10,7 @@ import {
   LayoutTemplate,
   BellRing,
   Settings2,
+  Receipt,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
@@ -47,6 +48,7 @@ const restNavItems: NavItem[] = [
   { title: "FAQs", url: "/faqs", icon: BookOpen },
   { title: "Pages", url: "/pages", icon: LayoutTemplate },
   { title: "Push Notifications", url: "/push-notifications", icon: BellRing },
+  { title: "Charge types", url: "/host-charge-types", icon: Receipt },
   { title: "Settings", url: "/settings", icon: Settings2 },
 ];
 

@@ -19,6 +19,7 @@ import PagesPage from "@/pages/PagesPage";
 import PushNotificationsPage from "@/pages/PushNotificationsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import SettingsPage from "@/pages/SettingsPage";
+import HostChargeTypesPage from "@/pages/HostChargeTypesPage";
 import ProfilePage from "@/pages/ProfilePage";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
@@ -66,6 +67,7 @@ const App = () => {
               <Route path="/roles" element={<Navigate to="/" replace />} />
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/host-charge-types" element={<HostChargeTypesPage />} />
             </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
