@@ -139,6 +139,7 @@ export async function updateUnifiedTicket(
     amount?: number;
     admin_notes?: string | null;
     note?: string | null;
+    notes?: string | null;
     event_id?: number;
     offer_event_id?: number;
   }

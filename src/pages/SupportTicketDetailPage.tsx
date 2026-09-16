@@ -61,7 +61,8 @@ const SupportTicketDetailPage = () => {
   const deleteMut = useDeleteSupportTicketMutation();
 
   const [amountDraft, setAmountDraft] = useState("");
-  const [notesDraft, setNotesDraft] = useState("");
+  const [stickyNotes, setStickyNotes] = useState("");
+  const [actionMessage, setActionMessage] = useState("");
   const [confirm, setConfirm] = useState<
     "approve" | "deny" | "counter" | "waive" | "delete" | "approve_offer" | "reject_offer" | null
   >(null);
@@ -74,13 +75,17 @@ const SupportTicketDetailPage = () => {
   useEffect(() => {
     if (kind === "extras" && extras) {
       setAmountDraft(String(extras.total_amount ?? ""));
-      setNotesDraft(extras.dispute_note || extras.note || "");
+      setStickyNotes(extras.admin_notes || "");
     }
     if ((kind === "claim" || kind === "general") && unified) {
       setAmountDraft(String(unified.amount ?? unified.claim?.amount ?? ""));
-      setNotesDraft(unified.admin_notes || "");
+      setStickyNotes(unified.admin_notes || "");
     }
   }, [kind, extras, unified]);
+
+  useEffect(() => {
+    if (confirm && confirm !== "delete") setActionMessage("");
+  }, [confirm]);
 
   const loading =
     (kind === "extras" && extrasQ.isLoading) ||
@@ -173,27 +178,30 @@ const SupportTicketDetailPage = () => {
     [kind, extras, unified]
   );
 
+  const actionNote = () => actionMessage.trim() || null;
+
   const runResolve = async () => {
     try {
+      const note = actionNote();
       if (kind === "extras") {
         const amount = parseFloat(amountDraft);
         const current = Number(extras?.total_amount) || 0;
         if (!Number.isNaN(amount) && Math.abs(amount - current) > 0.001) {
           await updateExtras.mutateAsync({
             id,
-            body: { action: "set_amount", amount, note: notesDraft || null },
+            body: { action: "set_amount", amount, note },
           });
         } else {
           await updateExtras.mutateAsync({
             id,
-            body: { action: "confirm", note: notesDraft || null },
+            body: { action: "confirm", note },
           });
         }
         toast({ title: "Ticket approved", description: ticketRef(id) });
       } else if (kind === "claim") {
         await updateUnified.mutateAsync({
           id,
-          body: { action: "approve", admin_notes: notesDraft || null },
+          body: { action: "approve", note },
         });
         toast({
           title: "Amount approved",
@@ -202,7 +210,7 @@ const SupportTicketDetailPage = () => {
       } else if (kind === "general") {
         await updateUnified.mutateAsync({
           id,
-          body: { action: "resolve", admin_notes: notesDraft || null },
+          body: { action: "resolve", note },
         });
         toast({ title: "Ticket closed", description: ticketRef(id) });
       }
@@ -218,15 +226,16 @@ const SupportTicketDetailPage = () => {
 
   const runReject = async () => {
     try {
+      const note = actionNote();
       if (kind === "extras") {
         await updateExtras.mutateAsync({
           id,
-          body: { action: "deny", note: notesDraft || null },
+          body: { action: "deny", note },
         });
       } else if (kind === "claim" || kind === "general") {
         await updateUnified.mutateAsync({
           id,
-          body: { action: "cancel", admin_notes: notesDraft || null },
+          body: { action: "cancel", note },
         });
       }
       setConfirm(null);
@@ -255,15 +264,16 @@ const SupportTicketDetailPage = () => {
     }
 
     try {
+      const note = actionNote();
       if (kind === "claim") {
         await updateUnified.mutateAsync({
           id,
-          body: { action: "counter", amount, admin_notes: notesDraft || null },
+          body: { action: "counter", amount, note },
         });
       } else {
         await updateExtras.mutateAsync({
           id,
-          body: { action: "counter", amount, note: notesDraft || null },
+          body: { action: "counter", amount, note },
         });
       }
       setConfirm(null);
@@ -279,15 +289,16 @@ const SupportTicketDetailPage = () => {
 
   const runWaive = async () => {
     try {
+      const note = actionNote();
       if (kind === "claim" || kind === "general") {
         await updateUnified.mutateAsync({
           id,
-          body: { action: "cancel", admin_notes: notesDraft || null },
+          body: { action: "cancel", note },
         });
       } else {
         await updateExtras.mutateAsync({
           id,
-          body: { action: "waive", note: notesDraft || null },
+          body: { action: "waive", note },
         });
       }
       setConfirm(null);
@@ -310,7 +321,7 @@ const SupportTicketDetailPage = () => {
         body: {
           action,
           event_id: offerEventId,
-          admin_notes: notesDraft || null,
+          note: actionNote(),
         },
       });
       setConfirm(null);
@@ -343,6 +354,31 @@ const SupportTicketDetailPage = () => {
         description: e instanceof Error ? e.message : "Try again",
         variant: "destructive",
       });
+    }
+  };
+
+  const saveStickyNotes = async (notes: string) => {
+    try {
+      if (kind === "extras") {
+        await updateExtras.mutateAsync({
+          id,
+          body: { action: "save_notes", admin_notes: notes },
+        });
+      } else {
+        await updateUnified.mutateAsync({
+          id,
+          body: { admin_notes: notes },
+        });
+      }
+      setStickyNotes(notes);
+      toast({ title: "Notes saved" });
+    } catch (e) {
+      toast({
+        title: "Could not save notes",
+        description: e instanceof Error ? e.message : "Try again",
+        variant: "destructive",
+      });
+      throw e;
     }
   };
 
@@ -489,17 +525,6 @@ const SupportTicketDetailPage = () => {
                       offered {money(pendingOffer.amount)}. Approve or reject it on the timeline before finalizing.
                     </div>
                   ) : null}
-                  <div>
-                    <Label className="mb-1.5 text-xs text-muted-foreground">Your counter (sets amount immediately)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={amountDraft}
-                      onChange={(e) => setAmountDraft(e.target.value)}
-                      disabled={busy}
-                    />
-                  </div>
                 </>
               ) : (
                 <Field
@@ -513,17 +538,6 @@ const SupportTicketDetailPage = () => {
                   }
                 />
               )}
-              {isOpen && (kind === "extras" || kind === "claim" || kind === "general") ? (
-                <div>
-                  <Label className="mb-1.5 text-xs text-muted-foreground">Admin notes</Label>
-                  <Textarea
-                    rows={3}
-                    value={notesDraft}
-                    onChange={(e) => setNotesDraft(e.target.value)}
-                    disabled={busy}
-                  />
-                </div>
-              ) : null}
 
               <div className="space-y-2 pt-2">
                 {isOpen ? (
@@ -542,7 +556,7 @@ const SupportTicketDetailPage = () => {
                     <Button
                       className="w-full"
                       variant="outline"
-                      disabled={busy || (kind !== "general" && !(parseFloat(amountDraft) >= 0))}
+                      disabled={busy}
                       onClick={() => setConfirm("counter")}
                     >
                       Counter
@@ -570,6 +584,9 @@ const SupportTicketDetailPage = () => {
               source="Via app"
               counterPromptKey={counterPromptKey}
               offerBusy={busy}
+              stickyNotes={stickyNotes}
+              onSaveStickyNotes={saveStickyNotes}
+              stickyNotesBusy={busy}
               onReviewOffer={(eventId, action) => {
                 setOfferEventId(eventId);
                 setConfirm(action === "approve" ? "approve_offer" : "reject_offer");
@@ -635,6 +652,22 @@ const SupportTicketDetailPage = () => {
                 onChange={(e) => setAmountDraft(e.target.value)}
                 disabled={busy}
                 autoFocus
+              />
+            </div>
+          ) : null}
+          {confirm && confirm !== "delete" && !(confirm === "counter" && kind === "general") ? (
+            <div className="space-y-1.5">
+              <Label htmlFor="action-message" className="text-xs text-muted-foreground">
+                Message (optional)
+              </Label>
+              <Textarea
+                id="action-message"
+                rows={3}
+                value={actionMessage}
+                onChange={(e) => setActionMessage(e.target.value)}
+                disabled={busy}
+                placeholder="Add a note for the guest and host…"
+                className="resize-none"
               />
             </div>
           ) : null}
